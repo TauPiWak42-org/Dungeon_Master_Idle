@@ -1,0 +1,2740 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>⚔️ Dungeon Builder v55</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0612; font-family: 'Courier New', monospace; color: #d4c5a0; overflow: hidden; display: flex; height: 100vh; }
+#game { flex: 1; min-width: 0; position: relative; background: linear-gradient(180deg, #1a0f1f 0%, #0a0612 100%); display: flex; justify-content: center; align-items: center; }
+canvas { display: block; cursor: pointer; }
+#ui { 
+    flex: 0 1 380px; 
+    min-width: 220px; 
+    background: linear-gradient(180deg, #1a0f1f, #0d0612); 
+    border-left: 2px solid #4a2c5a; 
+    padding: clamp(6px, 1vw, 12px); 
+    overflow-y: auto; 
+}
+#topBar { 
+    position: absolute; top: 0; left: 0; right: 0; 
+    background: rgba(0,0,0,0.85); border-bottom: 2px solid #ffd700; 
+    padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.5vw, 15px); 
+    display: flex; justify-content: space-between; align-items: center; z-index: 100; 
+}
+#topBar .gold-display { font-size: clamp(14px, 1.5vw, 18px); color: #ffd700; font-weight: bold; }
+#topBar .combo-display { font-size: clamp(11px, 1.2vw, 14px); color: #ffd700; }
+#topBar .hp-bonus { font-size: clamp(10px, 1vw, 12px); color: #ff6b9d; position: relative; }
+.dev-indicator { position: absolute; top: 40px; left: 10px; background: rgba(255,0,0,0.3); border: 1px solid #ff4a4a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #ff4a4a; font-weight: bold; display: none; }
+.dev-indicator.active { display: block; }
+.delete-indicator { position: absolute; top: 40px; right: 10px; background: rgba(255,100,100,0.3); border: 1px solid #ff6b6b; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #ff6b6b; font-weight: bold; display: none; }
+.delete-indicator.active { display: block; }
+.speed-indicator { position: absolute; top: 70px; left: 10px; background: rgba(74,240,255,0.2); border: 1px solid #4af0ff; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #4af0ff; font-weight: bold; display: none; }
+.speed-indicator.active { display: block; }
+.manual-indicator { position: absolute; top: 100px; left: 10px; background: rgba(74,240,255,0.2); border: 1px solid #4af0ff; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #4af0ff; font-weight: bold; display: none; }
+.manual-indicator.active { display: block; }
+.stat { background: rgba(0,0,0,0.5); border: 1px solid #6b3a8a; padding: clamp(4px, 0.8vw, 8px); margin-bottom: clamp(5px, 1vw, 10px); border-radius: 4px; }
+.stat-row { display: flex; justify-content: space-between; margin: 2px 0; font-size: clamp(10px, 1vw, 12px); }
+.stat-row span:last-child { color: #ffd700; font-weight: bold; }
+h2 { color: #b88aff; margin-bottom: clamp(4px, 0.8vw, 8px); font-size: clamp(12px, 1.3vw, 14px); border-bottom: 1px solid #4a2c5a; padding-bottom: 4px; }
+.btn { 
+    display: block; width: 100%; background: linear-gradient(180deg, #3a1f4a, #1f0f2a); border: 1px solid #6b3a8a; color: #d4c5a0; 
+    padding: clamp(5px, 0.8vw, 8px); margin: clamp(2px, 0.4vw, 4px) 0; cursor: pointer; font-family: inherit; text-align: left; 
+    border-radius: 3px; font-size: clamp(10px, 1vw, 12px); transition: all 0.15s; position: relative; 
+}
+.btn:hover:not(:disabled) { background: linear-gradient(180deg, #5a2f7a, #2f1f4a); border-color: #b88aff; box-shadow: 0 0 10px rgba(184,138,255,0.4); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.5); }
+.btn.pending-purchase { background: linear-gradient(180deg, #7a6a1f, #4a3f0f) !important; border-color: #ffd700 !important; box-shadow: 0 0 15px rgba(255,215,0,0.6) !important; animation: pendingPulse 1.2s ease-in-out infinite !important; }
+@keyframes pendingPulse {
+0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+50% { box-shadow: 0 0 25px rgba(255,215,0,0.9), 0 0 40px rgba(255,215,0,0.4); }
+}
+.btn .name { font-weight: bold; color: #ffd700; font-size: clamp(11px, 1.1vw, 12px); }
+.btn .count { color: #4aff4a; font-size: clamp(11px, 1.2vw, 13px); font-weight: bold; margin-left: 6px; text-shadow: 0 0 5px rgba(74,255,74,0.5); }
+.btn .desc { font-size: clamp(9px, 0.9vw, 11px); color: #a89a80; margin-top: 2px; }
+.btn .cost { float: right; color: #ff6b9d; font-size: clamp(12px, 1.4vw, 16px); font-weight: bold; text-shadow: 0 0 4px rgba(255,107,157,0.4); }
+.section { margin-bottom: clamp(8px, 1.5vw, 15px); }
+.wave-alert { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; color: #ff4a4a; text-shadow: 0 0 20px #ff0000; animation: pulse 1.5s ease-out; pointer-events: none; z-index: 50; }
+.wave-alert.big { font-size: 48px; }
+.wave-alert.death { 
+    color: #ffd700; 
+    text-shadow: 0 0 30px #ff0000, 0 0 60px #ffd700, 0 0 90px #8a2be2; 
+    font-size: 48px; 
+    animation: pulseDeath 1s ease-in-out infinite; 
+}
+@keyframes pulseDeath {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.15); }
+}
+.wave-alert.rebirth-alert { color: #ffd700; text-shadow: 0 0 35px #ffd700, 0 0 60px #ff8800; font-size: 44px; }
+.wave-alert.slain { color: #ff0000; text-shadow: 0 0 30px #ff0000, 0 0 60px #8a0000; font-size: 56px; }
+.wave-alert.victory { color: #ffd700; text-shadow: 0 0 40px #ffd700, 0 0 80px #ff8800; font-size: 48px; animation: victoryPulse 2s ease-out; }
+@keyframes victoryPulse { 0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } 30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+@keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+@keyframes weakenFade {
+0% { opacity: 0; transform: translateY(5px); }
+20% { opacity: 1; transform: translateY(0); }
+80% { opacity: 1; }
+100% { opacity: 0; transform: translateY(-10px); }
+}
+.toggle-container { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.5); border: 1px solid #6b3a8a; padding: clamp(4px, 0.8vw, 8px); margin-bottom: 4px; border-radius: 4px; }
+.toggle-label { font-size: clamp(10px, 1vw, 12px); color: #d4c5a0; }
+.toggle-switch { position: relative; width: clamp(35px, 4vw, 50px); height: clamp(18px, 2.5vw, 24px); background: #2a1a3a; border-radius: 12px; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+.toggle-switch.active { background: #6b3a8a; }
+.toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: clamp(14px, 1.8vw, 20px); height: clamp(14px, 1.8vw, 20px); background: #d4c5a0; border-radius: 50%; transition: left 0.3s, right 0.3s; }
+.toggle-switch.active::after { left: auto; right: 2px; }
+.toggle-switch.danger.active { background: #8a1a1a; }
+.toggle-switch.manual.active { background: #1a6a8a; }
+.toggle-hint { font-size: 10px; color: #b88aff; margin-bottom: 10px; padding: 4px 8px; background: rgba(184,138,255,0.1); border-radius: 3px; display: none; }
+.toggle-hint.visible { display: block; }
+.wave-btn { background: linear-gradient(180deg, #5a2f1f, #3a1f0f); border: 1px solid #ff8a4a; color: #ffd4b0; text-align: center; font-weight: bold; }
+.wave-btn:hover:not(:disabled) { background: linear-gradient(180deg, #7a3f2f, #5a2f1f); box-shadow: 0 0 15px rgba(255,138,74,0.5); }
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+.modal.active { display: flex; }
+.modal-content { background: #1a0f1f; border: 2px solid #6b3a8a; padding: 25px; border-radius: 8px; max-width: 950px; width: 92%; max-height: 85vh; overflow-y: auto; }
+.modal-content h3 { color: #b88aff; margin-bottom: 15px; font-size: 20px; }
+.checkbox-row { display: flex; align-items: center; margin: 10px 0; font-size: 12px; }
+.checkbox-row input { margin-right: 10px; }
+.close-btn { margin-top: 15px; width: 100%; }
+.rebirth-btn { background: linear-gradient(180deg, #5a1f1f, #2a0f0f); border: 1px solid #ff4a4a; color: #ffb0b0; text-align: center; position: relative; overflow: hidden; }
+.rebirth-btn.ready { animation: rebirthGlow 1s ease-in-out infinite; }
+@keyframes rebirthGlow {
+0%, 100% { box-shadow: 0 0 10px rgba(255,74,74,0.5); }
+50% { box-shadow: 0 0 30px rgba(255,74,74,0.9), 0 0 50px rgba(255,215,0,0.5); }
+}
+.artifacts-list { margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 11px; }
+.artifacts-list .art-item { color: #b88aff; margin: 2px 0; }
+.spec-btn { background: linear-gradient(180deg, #4a2c5a, #2a1a3a); border: 1px solid #b88aff; }
+.spec-btn:hover:not(:disabled) { background: linear-gradient(180deg, #6a3c7a, #4a2c5a); }
+.spec-btn .locked { color: #888; font-style: italic; }
+.spec-btn.available-glow { border-color: #ffd700 !important; animation: specGlow 1.2s ease-in-out infinite !important; }
+@keyframes specGlow {
+0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+50% { box-shadow: 0 0 22px rgba(255,215,0,0.9), 0 0 35px rgba(255,215,0,0.4); }
+}
+.spec-hint { font-size: 10px; color: #a89a80; font-style: italic; margin-top: 6px; padding: 4px 6px; background: rgba(184,138,255,0.06); border-radius: 3px; }
+.tree-container { position: relative; padding: 20px 10px; min-height: 500px; }
+.tree-row { display: flex; justify-content: space-around; margin: 18px 0; gap: 10px; flex-wrap: wrap; }
+.tree-node {
+flex: 1; max-width: 180px; min-width: 140px; min-height: 70px;
+background: linear-gradient(180deg, #2a1a3a, #1a0f1f);
+border: 2px solid #4a2c5a; border-radius: 6px;
+padding: 8px; cursor: pointer; font-size: 11px;
+transition: all 0.2s; position: relative; text-align: center;
+}
+.tree-node:hover:not(.locked):not(.unlocked) { border-color: #b88aff; box-shadow: 0 0 15px rgba(184,138,255,0.5); transform: translateY(-2px); }
+.tree-node.unlocked { border-color: #4aff4a; background: linear-gradient(180deg, #1a3a1a, #0a1a0a); box-shadow: 0 0 10px rgba(74,255,74,0.3); }
+.tree-node.available { border-color: #ffd700; animation: nodePulse 1.5s ease-in-out infinite; }
+.tree-node.locked { opacity: 0.35; cursor: not-allowed; }
+@keyframes nodePulse {
+0%, 100% { box-shadow: 0 0 5px rgba(255,215,0,0.4); }
+50% { box-shadow: 0 0 20px rgba(255,215,0,0.8); }
+}
+.tree-node .node-name { color: #ffd700; font-weight: bold; font-size: 12px; }
+.tree-node .node-desc { color: #a89a80; margin-top: 3px; font-size: 10px; }
+.tree-node.unlocked .node-name { color: #4aff4a; }
+.tree-connector { text-align: center; color: #4a2c5a; font-size: 20px; margin: -5px 0; }
+.choices-remaining { text-align: center; margin-top: 15px; font-size: 14px; color: #ffd700; font-weight: bold; }
+#artifactModal .modal-content { max-width: 1190px; width: 96%; }
+#artifactModal .modal-content h3 { font-size: 40px; }
+#artifactModal .modal-content > p { font-size: 26px; margin-bottom: 20px; }
+#artifactModal .tree-container { min-height: 625px; }
+#artifactModal .choices-remaining { font-size: 28px; margin-top: 20px; }
+#artifactModal .tree-node { font-size: 20px; min-height: 90px; min-width: 180px; max-width: 235px; padding: 12px; }
+#artifactModal .tree-node .node-name { font-size: 24px; }
+#artifactModal .tree-node .node-desc { font-size: 20px; color: #d4c5a0; }
+#artifactModal .tree-connector { font-size: 30px; }
+.ctrl-row { display: flex; gap: 6px; margin-top: 10px; margin-bottom: 6px; }
+.ctrl-btn {
+flex: 1; height: 42px; padding: 0; text-align: center; font-size: 15px; font-weight: bold;
+background: linear-gradient(180deg, #3a1f4a, #1f0f2a); border: 1px solid #6b3a8a; color: #d4c5a0;
+cursor: pointer; font-family: inherit; border-radius: 4px; transition: all 0.15s;
+}
+.ctrl-btn:hover { background: linear-gradient(180deg, #5a2f7a, #2f1f4a); border-color: #b88aff; }
+.ctrl-btn.active-speed { border-color: #4af0ff; box-shadow: 0 0 10px rgba(74,240,255,0.5); color: #4af0ff; }
+.ctrl-btn.paused-active { border-color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.5); color: #ffd700; }
+#victoryModal { z-index: 2000; }
+#victoryModal .modal-content { text-align: center; max-width: 600px; }
+#victoryModal h3 { font-size: 40px; color: #ffd700; text-shadow: 0 0 20px #ffd700; }
+#victoryModal p { font-size: 18px; margin: 15px 0; }
+.victory-btn { background: linear-gradient(180deg, #5a4a1f, #3a2f0f); border: 2px solid #ffd700; color: #ffd700; text-align: center; font-weight: bold; font-size: 16px; padding: 12px; }
+.victory-btn:hover { box-shadow: 0 0 20px rgba(255,215,0,0.6); }
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="cv"></canvas>
+<div id="topBar">
+<div class="gold-display">💰 <span id="gold">25</span></div>
+<div class="combo-display">🔥 Комбо: x<span id="combo">1.00</span> <span id="comboCount" style="color:#a89a80;">(0)</span></div>
+<div class="hp-bonus">💪 Герои: +<span id="hpBonus">0</span>%</div>
+</div>
+<div class="dev-indicator" id="devIndicator">🛠️ DEV MODE</div>
+<div class="delete-indicator" id="deleteIndicator">🗑️ РЕЖИМ УДАЛЕНИЯ</div>
+<div class="speed-indicator" id="speedIndicator">⏩ x1</div>
+<div class="manual-indicator" id="manualIndicator">🎯 Кликните на место размещения</div>
+</div>
+<div id="ui">
+<div class="toggle-container">
+<span class="toggle-label">Равномерное размещение</span>
+<div class="toggle-switch active" id="modeToggle"></div>
+</div>
+<div class="toggle-container" id="manualTrapContainer" style="display:none;">
+<span class="toggle-label" style="color:#4af0ff;">🎯 Ручное размещение ловушек</span>
+<div class="toggle-switch manual" id="manualTrapToggle"></div>
+</div>
+<div class="toggle-container" id="manualMonsterContainer" style="display:none;">
+<span class="toggle-label" style="color:#4af0ff;">🎯 Ручное размещение монстров</span>
+<div class="toggle-switch manual" id="manualMonsterToggle"></div>
+</div>
+<div class="toggle-container">
+<span class="toggle-label" style="color:#ff6b6b;">🗑️ Режим удаления</span>
+<div class="toggle-switch danger" id="deleteToggle"></div>
+</div>
+<div class="toggle-hint" id="toggleHint">👆 Нажми на нужный этаж</div>
+<button class="btn wave-btn" id="nextWave" style="display:none;"><span class="name">⚔️ НАЧАТЬ СЛЕДУЮЩУЮ ВОЛНУ</span></button>
+<div class="section">
+<h2>🗡️ ЛОВУШКИ</h2>
+<button class="btn trap-btn" data-type="spikes"><span class="name">⚔️ Шипы</span><span class="count" id="count-spikes">0</span><span class="cost" id="cost-spikes">💰 10</span><div class="desc">Урон: <span id="dmg-spikes">10</span> | 0.5с</div></button>
+<button class="btn trap-btn" data-type="acid"><span class="name">🧪 Яд</span><span class="count" id="count-acid">0</span><span class="cost" id="cost-acid">💰 250</span><div class="desc">Урон: <span id="dmg-acid">50</span> | замедл. 35% 5с (не стакается)</div></button>
+<button class="btn trap-btn" data-type="arrow"><span class="name">🏹 Стрелы</span><span class="count" id="count-arrow">0</span><span class="cost" id="cost-arrow">💰 1000</span><div class="desc">Урон: <span id="dmg-arrow">400</span> | 2.5с залп</div></button>
+<button class="btn trap-btn" data-type="rune"><span class="name">🔮 Маг. руна</span><span class="count" id="count-rune">0</span><span class="cost" id="cost-rune">💰 20000</span><div class="desc">Урон: <span id="dmg-rune">2500</span> | AoE, 4с КД</div></button>
+<button class="btn trap-btn" data-type="flame"><span class="name">🔥 Огненный плевок</span><span class="count" id="count-flame">0</span><span class="cost" id="cost-flame">💰 315000</span><div class="desc">Урон: <span id="dmg-flame">21000</span> | 0.5с + поджог</div></button>
+<button class="btn trap-btn" data-type="ice"><span class="name">❄️ Ледяная ловушка</span><span class="count" id="count-ice">0</span><span class="cost" id="cost-ice">💰 4800000</span><div class="desc">Урон: <span id="dmg-ice">135000</span> | заморозка/замедл.</div></button>
+<button class="btn trap-btn" data-type="laser"><span class="name">🔫 Лазер</span><span class="count" id="count-laser">0</span><span class="cost" id="cost-laser">💰 1.3B</span><div class="desc">Урон: <span id="dmg-laser">200000</span> | 2.5 выстр/с, цель ближе к сокров.</div></button>
+</div>
+<div class="section">
+<h2>👹 МОНСТРЫ</h2>
+<button class="btn mon-btn" data-type="skeleton"><span class="name">💀 Скелет</span><span class="count" id="count-skeleton">0</span><span class="cost" id="cost-skeleton">💰 60</span><div class="desc">Урон: <span id="dmg-skeleton">50</span> | HP: <span id="hp-skeleton">300</span></div></button>
+<button class="btn mon-btn" data-type="goblin"><span class="name">👺 Гоблин</span><span class="count" id="count-goblin">0</span><span class="cost" id="cost-goblin">💰 3000</span><div class="desc">Урон: <span id="dmg-goblin">800</span> | HP: <span id="hp-goblin">1100</span></div></button>
+<button class="btn mon-btn" data-type="demon"><span class="name">😈 Демон</span><span class="count" id="count-demon">0</span><span class="cost" id="cost-demon">💰 720000</span><div class="desc">Урон: <span id="dmg-demon">48000</span> | HP: <span id="hp-demon">4200</span></div></button>
+<button class="btn mon-btn" data-type="dragon"><span class="name">🐉 Дракон</span><span class="count" id="count-dragon">0</span><span class="cost" id="cost-dragon">💰 42000000</span><div class="desc">Урон: <span id="dmg-dragon">1800000</span> | HP: <span id="hp-dragon">6000</span></div></button>
+</div>
+<div id="specializationTop"></div>
+<div class="section">
+<h2>✨ ПОСТОЯННЫЕ УЛУЧШЕНИЯ</h2>
+<button class="btn" id="upgDmg"><span class="name">⚔️ Острота ловушек</span><span class="count" id="count-upgDmg">0</span><span class="cost" id="cost-upgDmg">💰 100</span><div class="desc">+10% к урону ловушек</div></button>
+<button class="btn" id="upgMonDmg"><span class="name">👹 Ярость монстров</span><span class="count" id="count-upgMonDmg">0</span><span class="cost" id="cost-upgMonDmg">💰 150</span><div class="desc">+10% к урону монстров</div></button>
+<button class="btn" id="upgGold"><span class="name">💰 Жадность</span><span class="count" id="count-upgGold">0</span><span class="cost" id="cost-upgGold">💰 75</span><div class="desc">+10% к золоту</div></button>
+<button class="btn" id="upgCrit"><span class="name">💥 Крит. шанс</span><span class="count" id="count-upgCrit">0</span><span class="cost" id="cost-upgCrit">💰 50</span><div class="desc">+5% шанс крита (x2/x4/x8/x16)</div></button>
+<button class="btn" id="upgSpawn"><span class="name">🏃 Приманка</span><span class="count" id="count-upgSpawn">0</span><span class="cost" id="cost-upgSpawn">💰 40</span><div class="desc">Приключенцы приходят чаще<br><span style="color:#ff6b6b;">на свой страх и риск</span></div></button>
+<div id="specializations"></div>
+<div class="spec-hint">Каждые 5 купленных ловушек/монстров открывают новый уровень специализации</div>
+</div>
+<div class="section">
+<h2>⚒️ СТРОИТЕЛЬСТВО</h2>
+<button class="btn" id="addFloor" style="display:none;"><span class="name">+ Новый этаж</span><span class="count" id="count-floor">0</span><span class="cost" id="cost-floor">💰 100</span><div class="desc">Добавить уровень данжа (только в DEV)</div></button>
+</div>
+<button class="btn" id="clearFloorBtn" style="background: linear-gradient(180deg, #4a1a1a, #2a0a0a); border: 1px solid #8a3a3a; color: #ffb0b0; text-align: center;">
+<span class="name">🗑️ Очистить этаж</span>
+</button>
+<div class="section">
+<h2>📊 СТАТИСТИКА</h2>
+<div class="stat">
+<div class="stat-row"><span>💀 Убито</span><span id="kills">0</span></div>
+<div class="stat-row"><span>🏃 Прошло</span><span id="escaped">0</span></div>
+<div class="stat-row"><span>🏰 Этажей</span><span id="floors">1</span></div>
+<div class="stat-row"><span>🌊 Волна</span><span id="wave">0</span></div>
+<div class="stat-row"><span>🌟 Перерождений</span><span id="rebirths">0</span></div>
+<div class="stat-row"><span>💰/сек (прибыль)</span><span id="gps">0</span></div>
+<div class="stat-row"><span>⚔️ Множ. ловушек</span><span id="trapMult">x1.00</span></div>
+<div class="stat-row"><span>👹 Множ. монстров</span><span id="monMult">x1.00</span></div>
+<div class="stat-row"><span>💰 Множ. золота (с комбо)</span><span id="goldMultStat">x1.00</span></div>
+</div>
+<div class="artifacts-list" id="artifactsList" style="display:none;">
+<div style="color:#ffd700; font-weight:bold; margin-bottom:4px;">🎁 Артефакты:</div>
+<div id="artifactsItems"></div>
+</div>
+</div>
+<button class="btn rebirth-btn" id="rebirth">
+<span class="name">🌟 ПЕРЕРОЖДЕНИЕ</span>
+<div class="desc" id="rebirthInfo">Требуется 7000 убийств. +25% к урону. Выбор артефактов.</div>
+</button>
+<div class="ctrl-row">
+<button class="ctrl-btn" id="pauseBtn" title="Пауза (Пробел)">⏸️</button>
+<button class="ctrl-btn active-speed" data-speed="1" title="Скорость x1 (Клавиша 1)">1x</button>
+<button class="ctrl-btn" data-speed="2" title="Скорость x2 (Клавиша 2)">2x</button>
+<button class="ctrl-btn dev-speed" data-speed="4" style="display:none;">4x</button>
+<button class="ctrl-btn dev-speed" data-speed="10" style="display:none;">10x</button>
+</div>
+<div style="margin-top: 6px; border-top: 2px solid #4a2c5a; padding-top: 10px;">
+<button class="btn" id="settingsBtn">⚙️ Настройки</button>
+</div>
+</div>
+<div class="modal" id="settingsModal">
+<div class="modal-content" style="max-width: 500px;">
+<h3>⚙️ Настройки</h3>
+<div class="checkbox-row"><input type="checkbox" id="showNormalCrit" checked><label for="showNormalCrit">Анимация обычного крита</label></div>
+<div class="checkbox-row"><input type="checkbox" id="showSuperCrit" checked><label for="showSuperCrit">Анимация супер крита (x4)</label></div>
+<div class="checkbox-row"><input type="checkbox" id="showMegaCrit" checked><label for="showMegaCrit">Анимация мега крита (x8)</label></div>
+<div class="checkbox-row"><input type="checkbox" id="showUltraCrit" checked><label for="showUltraCrit">Анимация сверхкрита (x16)</label></div>
+<hr style="border-color: #4a2c5a; margin: 15px 0;">
+<div class="checkbox-row"><input type="checkbox" id="hidePoisonEffect"><label for="hidePoisonEffect">🚫 Убрать эффекты яда</label></div>
+<div class="checkbox-row"><input type="checkbox" id="hideBardEffect"><label for="hideBardEffect">🚫 Убрать эффекты бардов</label></div>
+<div class="checkbox-row"><input type="checkbox" id="hideDeathEffect"><label for="hideDeathEffect">🚫 Убрать эффекты смерти героев</label></div>
+<div class="checkbox-row"><input type="checkbox" id="hideIceEffect"><label for="hideIceEffect">🚫 Убрать эффекты ледяной ловушки</label></div>
+<div class="checkbox-row"><input type="checkbox" id="hideRuneEffect"><label for="hideRuneEffect">🚫 Убрать вращающиеся руны на рунной ловушке</label></div>
+<hr style="border-color: #4a2c5a; margin: 15px 0;">
+<div class="checkbox-row">
+<input type="checkbox" id="devMode">
+<label for="devMode" style="color: #ff4a4a; font-weight: bold;">🛠️ Режим разработчика</label>
+</div>
+<div style="font-size: 10px; color: #a89a80; margin-left: 26px; margin-bottom: 10px;">Бесконечное золото, мгновенное перерождение, кнопка волны, ручные этажи, скорость 4x/10x</div>
+<button class="btn close-btn" id="closeSettings">Закрыть</button>
+</div>
+</div>
+<div class="modal" id="clearFloorModal">
+<div class="modal-content" style="max-width: 500px;">
+<h3>🗑️ Очистить этаж</h3>
+<p style="margin-bottom: 10px; font-size: 12px;">Выберите этаж для очистки (ловушки и монстры):</p>
+<div id="floorChoices"></div>
+<button class="btn close-btn" id="cancelClear">Отмена</button>
+</div>
+</div>
+<div class="modal" id="artifactModal">
+<div class="modal-content">
+<h3>🌳 Дерево Артефактов</h3>
+<p style="font-size: 13px;">Перерождение #<span id="rebirthNumber">1</span>. Выберите <b style="color:#ffd700;"><span id="choicesTotal">1</span></b> доступных узлов:</p>
+<div id="artifactTree" class="tree-container"></div>
+<div class="choices-remaining">Осталось выборов: <span id="choicesLeft">1</span></div>
+</div>
+</div>
+<div class="modal" id="victoryModal">
+<div class="modal-content">
+<h3>🏆 ПОБЕДА!</h3>
+<p style="color:#ffd700; font-size:22px;">Вы одолели РАСХИТИТЕЛЯ!</p>
+<p style="color:#d4c5a0;">Игра пройдена, но данж продолжает жить...</p>
+<p style="color:#ff6b6b; font-size:14px; margin-top:15px;">⚠️ Каждые 5 волн будут приходить КРАСНЫЕ СМЕРТИ с растущим HP!</p>
+<button class="btn victory-btn" id="continueGameBtn">⚔️ Продолжить играть</button>
+</div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+let W, H;
+let canvasW, canvasH;
+let scale = 1;
+let offsetX = 0, offsetY = 0;
+
+function resize() {
+    const gameEl = document.getElementById('game');
+    canvasW = gameEl.clientWidth;
+    canvasH = gameEl.clientHeight;
+    cv.width = canvasW;
+    cv.height = canvasH;
+    if (W === undefined) {
+        W = canvasW;
+        H = canvasH;
+    }
+    scale = Math.min(canvasW / W, canvasH / H);
+    offsetX = (canvasW - W * scale) / 2;
+    offsetY = (canvasH - H * scale) / 2;
+}
+
+function getLogicalCoords(e) {
+    const rect = cv.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    return {
+        x: (mouseX - offsetX) / scale,
+        y: (mouseY - offsetY) / scale
+    };
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+const settings = {
+showNormalCrit: true, showSuperCrit: true, showMegaCrit: true, showUltraCrit: true,
+hidePoisonEffect: false, hideBardEffect: false, hideDeathEffect: false,
+hideIceEffect: false, hideRuneEffect: false
+};
+let gamePaused = false;
+let isPaused = false;
+let devMode = false;
+let deleteMode = false;
+let rebirthAvailable = false;
+let fireworkPlayed = false;
+let gameSpeed = 1;
+let playerDead = false;
+let manualTrapMode = false;
+let manualMonsterMode = false;
+let pendingShopItem = null;
+let cursorX = 0, cursorY = 0, cursorOnCanvas = false;
+let goblinSlayer = null;
+let goblinSlayerDefeated = false;
+let postGameWaveCount = 0;
+let lastSpecState = '';
+let specRefs = [];
+let lastTime = performance.now();
+let artifactChoicesLeft = 0;
+let floorProtection = [];
+const timedEvents = [];
+function scheduleEvent(delay, action) { timedEvents.push({ delay, action }); }
+let respawnAccum = 0;
+let sampleAccum = 0;
+
+const ARTIFACT_TREE = {
+spikes_mult:     { name: '🗡️ Шипы-множитель',     desc: 'Урон шипов × позиция на этаже',                    layer: 0 },
+acid_percent:    { name: '☠️ Едкий яд',            desc: 'Яд доп. 2% макс. HP героев [1% боссы, 0.1% Смерти]', layer: 0 },
+arrow_range:     { name: '🏹 Дальнобойные стрелы', desc: 'Дальность ×3, урон от дистанции до +500%',          layer: 1 },
+skeleton_buff:   { name: '💀 Скелеты-снайперы',    desc: '×2 дальн., ×2 урон, пробитие 3',                    layer: 1 },
+flame_dot:       { name: '🔥 Адское пламя',        desc: 'Поджог = урон ловушки 5 сек',                       layer: 1 },
+ice_bonus:       { name: '❄️ Ледяной шок',         desc: 'Урон по замороженным ×10, по замедленным ×2',       layer: 2 },
+rune_cross:      { name: '✝️ Крест руны',          desc: 'Руна бьёт по горизонтали (50% урона)',              layer: 2 },
+goblin_regen:    { name: '👺 Орда гоблинов',       desc: '+5% HP/сек, урон х кол-во гоблинов на этаже',        layer: 2 },
+demon_teleport:  { name: '😈 Демон-охотник',       desc: 'Телепорт к героям у сокровищницы, ×2 урон и HP',     layer: 2 },
+dragon_knockback:{ name: '🐉 Дракон-страж',        desc: 'Отлетает при подходе героев, ×2 урон и HP, цена ÷2', layer: 2 },
+manual_traps:    { name: '🎯 Ручное размещение ловушек',  desc: 'Позволяет ставить ловушки вручную в любое место',  layer: 3 },
+manual_monsters: { name: '🎯 Ручное размещение монстров', desc: 'Позволяет ставить монстров вручную в любое место', layer: 3 },
+laser_upgrade:   { name: '🔫 Лазерный фокус',      desc: 'Цена возрастает медленнее, 3.5 выстрела/с.',       layer: 4 },
+};
+
+function hasArtifact(id) { return state.artifacts.includes(id); }
+const CLASS_UNLOCK_ORDER = ['warrior', 'mage', 'archer', 'cleric', 'rogue', 'berserker', 'shield', 'bard'];
+const classes = {
+warrior:   { name: 'Воин',     hp: 25, color: '#a0a0a0', reward: 10, speed: 48,  atk: 50,  class: 'warrior' },
+mage:      { name: 'Маг',      hp: 25, color: '#6b3a8a', reward: 10, speed: 60,  atk: 80,  class: 'mage' },
+archer:    { name: 'Лучник',   hp: 38, color: '#2a6a2a', reward: 10, speed: 75,  atk: 120, class: 'archer' },
+cleric:    { name: 'Клирик',   hp: 50, color: '#ffd700', reward: 10, speed: 54,  atk: 30,  class: 'cleric' },
+rogue:     { name: 'Плут',     hp: 25, color: '#2a4a2a', reward: 10, speed: 78,  atk: 40,  class: 'rogue' },
+berserker: { name: 'Берсерк',  hp: 25, color: '#8a1a1a', reward: 10, speed: 42,  atk: 60,  class: 'berserker' },
+shield:    { name: 'Щитовик',  hp: 50, color: '#5a7a9a', reward: 15, speed: 36,  atk: 30,  class: 'shield' },
+bard:      { name: 'Бард',     hp: 63, color: '#ff88cc', reward: 10, speed: 54,  atk: 20,  class: 'bard' },
+};
+function classCountAtWave(w) {
+return Math.min(CLASS_UNLOCK_ORDER.length, Math.floor((w + 1) / 2));
+}
+function getAvailableClasses() {
+const count = classCountAtWave(state.wave);
+return CLASS_UNLOCK_ORDER.slice(0, Math.max(1, count));
+}
+function pickClass() {
+const available = getAvailableClasses();
+const weights = available.map(c => c === 'rogue' ? 0.25 : 1);
+const total = weights.reduce((a, b) => a + b, 0);
+let r = Math.random() * total;
+for (let i = 0; i < available.length; i++) { r -= weights[i]; if (r <= 0) return available[i]; }
+return available[available.length - 1];
+}
+const state = {
+gold: 25, kills: 0, escaped: 0, floors: 1, rebirthCount: 0,
+dmgMult: 1, monsterDmgMult: 1, goldMult: 1, spawnMult: 1,
+critChance: 0.05, critMult: 2,
+combo: 0, comboTimer: 0, comboMult: 1,
+gps: 0,
+wave: 0, waveTimer: 0,
+hpBonusMult: 1, mode: 'uniform', targetFloor: -1,
+traps: { spikes: 0, acid: 0, arrow: 0, rune: 0, flame: 0, ice: 0, laser: 0 },
+monsters: { skeleton: 0, goblin: 0, demon: 0, dragon: 0 },
+baseDamage: { spikes: 10, acid: 50, arrow: 400, rune: 2500, flame: 21000, ice: 135000, laser: 200000, skeleton: 50, goblin: 800, demon: 48000, dragon: 1800000 },
+baseHP: { skeleton: 300, goblin: 1100, demon: 4200, dragon: 6000 },
+baseCost: { spikes: 10, acid: 250, arrow: 1000, rune: 20000, flame: 315000, ice: 4800000, laser: 1300000000, skeleton: 60, goblin: 3000, demon: 720000, dragon: 42000000 },
+upgDmgLvl: 0, upgMonDmgLvl: 0, upgGoldLvl: 0, upgCritLvl: 0, upgSpawnLvl: 0,
+artifacts: [],
+goldEarned: 0,
+goldSamples: [0],
+trapUpgrades: {
+spikes: { level: 0, mult: 1 }, acid: { level: 0, mult: 1 }, arrow: { level: 0, mult: 1 },
+rune: { level: 0, mult: 1 }, flame: { level: 0, mult: 1 }, ice: { level: 0, mult: 1 }, laser: { level: 0, mult: 1 },
+},
+monsterUpgrades: {
+skeleton: { level: 0, mult: 1 }, goblin: { level: 0, mult: 1 },
+demon: { level: 0, mult: 1 }, dragon: { level: 0, mult: 1 },
+},
+};
+const adventurers = [];
+const monsterInstances = [];
+const particles = [];
+const torches = [];
+const trapSlots = [];
+const projectiles = [];
+const effects = [];
+let spawnTimer = 0, tick = 0;
+function fmt(n) {
+n = Math.floor(n);
+if (n < 10000) return n.toString();
+if (n < 1e6) return (n/1e3).toFixed(1) + 'K';
+if (n < 1e9) return (n/1e6).toFixed(1) + 'M';
+if (n < 1e12) return (n/1e9).toFixed(1) + 'B';
+if (n < 1e15) return (n/1e12).toFixed(1) + 'T';
+return (n/1e15).toFixed(1) + 'Q';
+}
+function resetFloorProtection() {
+floorProtection = new Array(state.floors).fill(0);
+}
+function protectNewFloor() {
+while (floorProtection.length < state.floors) floorProtection.push(0);
+floorProtection[state.floors - 1] = 10;
+}
+function monsterBaseCost(type) {
+let base = state.baseCost[type];
+if (type === 'dragon' && hasArtifact('dragon_knockback')) base = Math.floor(base / 2);
+return base;
+}
+function costOf(type) {
+const count = state.traps[type] !== undefined ? state.traps[type] : state.monsters[type] !== undefined ? state.monsters[type] : 0;
+const base = state.traps[type] !== undefined ? state.baseCost[type] : monsterBaseCost(type);
+let mult = 1.4;
+if (type === 'spikes') mult = 1.3;
+if (type === 'laser') mult = hasArtifact('laser_upgrade') ? 1.3 : 1.4;
+return Math.floor(base * Math.pow(mult, count));
+}
+function damageOf(type) {
+let dmg = state.baseDamage[type] * state.dmgMult * Math.pow(1.25, state.rebirthCount);
+if (state.trapUpgrades[type]) dmg *= state.trapUpgrades[type].mult;
+return Math.floor(dmg);
+}
+function monsterDamageOf(type) {
+let base = state.baseDamage[type] * state.monsterDmgMult * Math.pow(1.25, state.rebirthCount);
+if (state.monsterUpgrades[type]) base *= state.monsterUpgrades[type].mult;
+if (type === 'skeleton' && hasArtifact('skeleton_buff')) base *= 2;
+if (type === 'demon' && hasArtifact('demon_teleport')) base *= 2;
+if (type === 'dragon' && hasArtifact('dragon_knockback')) base *= 2;
+return Math.floor(base);
+}
+function monsterHP(type) {
+let base = state.baseHP[type];
+if (type === 'demon' && hasArtifact('demon_teleport')) base *= 2;
+if (type === 'dragon' && hasArtifact('dragon_knockback')) base *= 2;
+return base;
+}
+function floorY(i) { const floorH = Math.min(160, (H - 120) / state.floors); return 80 + i * floorH; }
+function floorH() { return Math.min(160, (H - 120) / state.floors); }
+function floorCost() { return Math.floor(100 * Math.pow(2, state.floors - 1)); }
+function rebirthCost() {
+return 7000 + state.rebirthCount * 4000;
+}
+function specCost(type, isMonster) {
+const baseCost = state.baseCost[type];
+const upgrade = isMonster ? state.monsterUpgrades[type] : state.trapUpgrades[type];
+return Math.floor(baseCost * 9 * Math.pow(3, upgrade.level));
+}
+function maxSpecLevel(count) {
+return Math.floor(count / 5);
+}
+function getTrapY(type, floor) {
+const base = floorY(floor) + floorH();
+if (type === 'arrow') return base - 35;
+return base - 25;
+}
+function getMonsterY(type, floor) {
+const base = floorY(floor) + floorH();
+if (type === 'dragon') return base - 50;
+if (type === 'goblin' || type === 'skeleton') return base - 26;
+return base - 35;
+}
+function recalcPositions() {
+for (const slot of trapSlots) slot.y = getTrapY(slot.trapType || 'spikes', slot.floor);
+for (const m of monsterInstances) m.y = getMonsterY(m.type, m.floor);
+for (const a of adventurers) if (!a.dead) a.y = floorY(a.floor) + floorH() - 30;
+}
+function addFloorSlots() {
+const f = state.floors - 1;
+const slotsPerFloor = 12;
+for (let s = 0; s < slotsPerFloor; s++) {
+const x = 120 + s * ((W - 240) / (slotsPerFloor - 1));
+const y = floorY(f) + floorH() - 25;
+trapSlots.push({ floor: f, x, y, occupied: false, trapType: null, id: trapSlots.length, disabled: 0, cooldown: 0, animTimer: 0, firingTimer: 0, fireTick: 0, fireDir: 1 });
+}
+}
+function initSlots() {
+trapSlots.length = 0;
+for (let f = 0; f < state.floors; f++) {
+const slotsPerFloor = 12;
+for (let s = 0; s < slotsPerFloor; s++) {
+const x = 120 + s * ((W - 240) / (slotsPerFloor - 1));
+const y = floorY(f) + floorH() - 25;
+trapSlots.push({ floor: f, x, y, occupied: false, trapType: null, id: trapSlots.length, disabled: 0, cooldown: 0, animTimer: 0, firingTimer: 0, fireTick: 0, fireDir: 1 });
+}
+}
+}
+function getActiveTraps() { return trapSlots.filter(s => s.occupied && s.disabled <= 0); }
+function findBestFloorForTrap() {
+const floorCounts = new Array(state.floors).fill(0);
+for (const slot of trapSlots) if (slot.occupied) floorCounts[slot.floor]++;
+let minCount = Infinity, bestFloor = 0;
+for (let f = 0; f < state.floors; f++) if (floorCounts[f] < minCount) { minCount = floorCounts[f]; bestFloor = f; }
+return bestFloor;
+}
+function showWeakenEffect(reductionPct) {
+const hpBonusEl = document.querySelector('#topBar .hp-bonus');
+const el = document.createElement('span');
+el.textContent = ` ⬇ -${Math.round(reductionPct)}%`;
+el.style.cssText = 'color:#ff4a4a; font-weight:bold; margin-left:4px; animation: weakenFade 2s ease-out forwards;';
+hpBonusEl.appendChild(el);
+setTimeout(() => el.remove(), 2000);
+}
+function calcComboMult(combo) {
+const steps = Math.floor(combo / 5);
+if (steps <= 0) return 1;
+let bonus = 0.0035;
+for (let i = 1; i < steps; i++) {
+bonus += 0.0035 / 3;
+}
+return 1 + bonus;
+}
+function applyDamageToAdventurer(a, dmg) {
+if (a.shieldHits > 0) {
+a.shieldHits--;
+addParticle(a.x, a.y - 15, '#8888ff', { life: 0.3, size: 4, vy: -60 });
+addParticle(a.x - 8, a.y - 10, '#aaaaff', { life: 0.25, size: 2 });
+addParticle(a.x + 8, a.y - 10, '#aaaaff', { life: 0.25, size: 2 });
+return;
+}
+a.hp -= dmg;
+a.hitFlash = 5;
+}
+function spawnAdventurer(isBoss = false, bossLevel = 1) {
+const availFloors = [];
+for (let f = 0; f < state.floors; f++) if ((floorProtection[f] || 0) <= 0) availFloors.push(f);
+let floor;
+if (availFloors.length > 0) floor = availFloors[Math.floor(Math.random() * availFloors.length)];
+else floor = Math.floor(Math.random() * state.floors);
+const y = floorY(floor) + floorH() - 30;
+const classKey = pickClass();
+const t = classes[classKey];
+const finalHP = Math.floor(t.hp * state.hpBonusMult);
+const bossPower = isBoss ? 3 * Math.pow(1.05, bossLevel - 1) : 1;
+const comboHpMult = isBoss ? state.comboMult : 1;
+const bossHp = Math.floor(finalHP * bossPower * comboHpMult);
+const shieldHits = (classKey === 'shield') ? 5 : 0;
+adventurers.push({
+x: -30, y, floor,
+hp: isBoss ? bossHp : finalHP, maxHp: isBoss ? bossHp : finalHP,
+name: isBoss ? `БОСС Ур.${bossLevel} ${t.name}` : t.name, color: isBoss ? '#ff0000' : t.color,
+reward: isBoss ? t.reward * 20 * Math.pow(1.05, bossLevel - 1) : t.reward,
+speed: isBoss ? t.speed * 0.6 : t.speed,
+atk: isBoss ? t.atk * 3 : t.atk,
+atkSpeed: 0.67,
+class: t.class,
+frame: 0, dead: false, deathTimer: 0, hitFlash: 0,
+isBoss, size: isBoss ? 2.5 : 1,
+slowed: 0, slowedAmount: 0, poisoned: 0, poisonTick: 0, burning: 0, burningDmg: 0, frozen: 0,
+burnTick: 0,
+fighting: null, atkCooldown: 0,
+teleportCooldown: 0, healCooldown: Math.random() * 6.3 + 0.7,
+disableCooldown: 0, rangedAtkCooldown: 0,
+speedBuff: 0, currentSpeed: t.speed, currentAtk: t.atk,
+usedDisable: false,
+isDeath: false,
+shieldHits: shieldHits, shieldMax: 5,
+});
+}
+function spawnDeathWave(wave) {
+let deathType = null;
+if (wave === 20) deathType = { hp: 10000000, skin: 'normal', count: 4, atkSpeedMult: 2, dmgMult: 0.7 };
+else if (wave === 25) deathType = { hp: 150000000, skin: 'violet', count: 5, atkSpeedMult: 4, dmgMult: 0.6 };
+else if (wave === 30) deathType = { hp: 1000000000, skin: 'red', count: 6, atkSpeedMult: 6, dmgMult: 0.5 };
+else if (wave === 35) deathType = { hp: 10000000000, skin: 'angel', count: 7, atkSpeedMult: 8, dmgMult: 0.4 };
+if (!deathType) return;
+const availableFloors = [];
+for (let f = 0; f < state.floors; f++) availableFloors.push(f);
+for (let i = availableFloors.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[availableFloors[i], availableFloors[j]] = [availableFloors[j], availableFloors[i]];
+}
+const selectedFloors = availableFloors.slice(0, Math.min(deathType.count, availableFloors.length));
+const skinColor = deathType.skin === 'violet' ? '#8a2be2' : deathType.skin === 'red' ? '#ff2020' : deathType.skin === 'angel' ? '#fff8dc' : '#2a2a2a';
+const deathSpeed = 28.5;
+const baseAtk = 3000 * deathType.dmgMult;
+const atkSpeed = 0.67 / deathType.atkSpeedMult;
+for (const floor of selectedFloors) {
+const y = floorY(floor) + floorH() - 30;
+adventurers.push({
+x: -30, y, floor,
+hp: deathType.hp, maxHp: deathType.hp,
+name: '☠️ СМЕРТЬ', color: skinColor,
+reward: 0, speed: deathSpeed, atk: baseAtk, atkSpeed: atkSpeed,
+class: 'death',
+frame: 0, dead: false, deathTimer: 0, hitFlash: 0,
+isBoss: false, size: 2,
+slowed: 0, slowedAmount: 0, poisoned: 0, poisonTick: 0, burning: 0, burningDmg: 0, frozen: 0,
+burnTick: 0,
+fighting: null, atkCooldown: 0,
+teleportCooldown: 0, healCooldown: 99999,
+disableCooldown: 0, rangedAtkCooldown: 0,
+speedBuff: 0, currentSpeed: deathSpeed, currentAtk: baseAtk,
+usedDisable: false,
+isDeath: true, deathSkin: deathType.skin,
+shieldHits: 0, shieldMax: 0,
+});
+}
+showDeathAlert('☠️ ВОЛНА СМЕРТИ! 🌟 ЛУЧШЕ ПЕРЕРОЖДАТЬСЯ СЕЙЧАС! 🌟');
+}
+function spawnPostGameDeath() {
+const cycle = Math.floor(postGameWaveCount / 5);
+const deathHp = 3e12 * Math.pow(10, cycle - 1);
+for (let f = 0; f < state.floors; f++) {
+const y = floorY(f) + floorH() - 30;
+adventurers.push({
+x: -30, y, floor: f,
+hp: deathHp, maxHp: deathHp,
+name: '☠️ КРАСНАЯ СМЕРТЬ', color: '#ff0040',
+reward: 0, speed: 28.5, atk: 5000, atkSpeed: 0.1,
+class: 'death',
+frame: 0, dead: false, deathTimer: 0, hitFlash: 0,
+isBoss: false, size: 2,
+slowed: 0, slowedAmount: 0, poisoned: 0, poisonTick: 0, burning: 0, burningDmg: 0, frozen: 0,
+burnTick: 0,
+fighting: null, atkCooldown: 0,
+teleportCooldown: 0, healCooldown: 99999,
+disableCooldown: 0, rangedAtkCooldown: 0,
+speedBuff: 0, currentSpeed: 28.5, currentAtk: 5000,
+usedDisable: false,
+isDeath: true, deathSkin: 'red',
+shieldHits: 0, shieldMax: 0,
+});
+}
+showDeathAlert('☠️ КРАСНАЯ СМЕРТЬ НА КАЖДОМ ЭТАЖЕ! 🌟 ЛУЧШЕ ПЕРЕРОЖДАТЬСЯ! 🌟');
+}
+function showDeathAlert(text) {
+const a = document.createElement('div');
+a.className = 'wave-alert big death';
+a.textContent = text;
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 5000);
+}
+function showRebirthAlert() {
+const a = document.createElement('div');
+a.className = 'wave-alert rebirth-alert';
+a.textContent = '🌟 ПЕРЕРОЖДЕНИЕ ДОСТУПНО!';
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 2500);
+}
+function findBestFloorForMonster(type) {
+const floorCounts = new Array(state.floors).fill(0);
+for (const m of monsterInstances) if (m.type === type) floorCounts[m.floor]++;
+let minCount = Infinity, bestFloor = 0;
+for (let f = 0; f < state.floors; f++) if (floorCounts[f] < minCount) { minCount = floorCounts[f]; bestFloor = f; }
+return bestFloor;
+}
+function spawnMonsterInstance(type, targetFloor = -1) {
+const floor = targetFloor >= 0 ? targetFloor : (state.mode === 'uniform' ? findBestFloorForMonster(type) : Math.floor(Math.random() * state.floors));
+const y = getMonsterY(type, floor);
+let x;
+if (type === 'demon') x = W - 80;
+else {
+let attempts = 0;
+do { x = 180 + Math.random() * (W - 360); attempts++; } while (attempts < 10 && trapSlots.some(s => s.occupied && s.floor === floor && Math.abs(s.x - x) < 40));
+}
+monsterInstances.push({ x, y, homeX: x, floor, type, hp: monsterHP(type), maxHp: monsterHP(type), frame: Math.random() * 100, id: Math.random(), dead: false, respawnTimer: 0, alpha: 1, fighting: null, atkCooldown: 0, ranged: type === 'skeleton' || type === 'dragon' });
+}
+function respawnMonsters() {
+for (const type in state.monsters) {
+const dead = monsterInstances.filter(m => m.type === type && m.dead);
+for (const m of dead) {
+if (m.respawnTimer <= 0 && monsterInstances.filter(mon => mon.type === type && !mon.dead).length < state.monsters[type]) {
+m.dead = false; m.hp = monsterHP(type); m.maxHp = monsterHP(type); m.alpha = 1; m.fighting = null; m.atkCooldown = 0;
+if (m.type === 'demon') m.x = W - 80;
+else m.x = 180 + Math.random() * (W - 360);
+m.homeX = m.x;
+m.y = getMonsterY(m.type, m.floor);
+}
+}
+}
+}
+function addParticle(x, y, color, opts = {}) {
+if (particles.length > 200) return;
+particles.push({ x, y, vx: opts.vx || (Math.random() - 0.5) * 180, vy: opts.vy || -Math.random() * 180 - 60, life: opts.life || 0.5, maxLife: opts.life || 0.5, color, size: opts.size || 2 + Math.random() * 2, gravity: opts.gravity !== undefined ? opts.gravity : 360 });
+}
+function addFirework(x, y) {
+const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffd700'];
+for (let i = 0; i < 30; i++) {
+const angle = (Math.PI * 2 * i) / 30;
+const speed = 180 + Math.random() * 120;
+const color = colors[Math.floor(Math.random() * colors.length)];
+particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1, maxLife: 1, color, size: 3, gravity: 360 });
+}
+}
+function addBlood(x, y) {
+if (settings.hideDeathEffect) return;
+for (let i = 0; i < 8; i++) addParticle(x, y, `hsl(${Math.random()*20}, 90%, ${30+Math.random()*20}%)`, { vx: (Math.random() - 0.5) * 360, vy: -Math.random() * 300, life: 0.83 });
+}
+function addMagic(x, y, color) { for (let i = 0; i < 8; i++) { const a = Math.random() * Math.PI * 2; const s = Math.random() * 240 + 60; addParticle(x, y, color, { vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.58, gravity: 0 }); } }
+function initTorches() {
+torches.length = 0;
+for (let i = 0; i < state.floors; i++) {
+const y = floorY(i);
+torches.push({ x: 60, y: y + 30 }); torches.push({ x: W - 60, y: y + 30 });
+if (W > 700) torches.push({ x: W / 2, y: y + 30 });
+}
+}
+initTorches();
+function drawBackground() {
+ctx.fillStyle = '#1a0f1f'; ctx.fillRect(0, 0, W, H);
+ctx.strokeStyle = 'rgba(60, 40, 70, 0.3)'; ctx.lineWidth = 1;
+for (let y = 0; y < H; y += 30) { const offset = (Math.floor(y / 30) % 2) * 30; for (let x = -30; x < W; x += 60) ctx.strokeRect(x + offset, y, 60, 30); }
+}
+function drawFloors() {
+for (let i = 0; i < state.floors; i++) {
+const y = floorY(i); const h = floorH();
+if (state.mode === 'targeted' && state.targetFloor === i && !manualTrapMode && !manualMonsterMode) {
+ctx.fillStyle = 'rgba(184, 138, 255, 0.15)'; ctx.fillRect(0, y, W, h);
+ctx.strokeStyle = '#b88aff'; ctx.lineWidth = 3; ctx.strokeRect(0, y, W, h);
+}
+ctx.fillStyle = '#2a1a3a'; ctx.fillRect(0, y + h - 12, W, 12);
+ctx.fillStyle = '#4a2c5a'; ctx.fillRect(0, y + h - 14, W, 2);
+for (let x = 0; x < W; x += 40) { ctx.fillStyle = (Math.floor(x/40) + i) % 2 ? '#3a2a4a' : '#2f2040'; ctx.fillRect(x, y + h - 12, 38, 10); }
+ctx.fillStyle = 'rgba(90, 70, 100, 0.55)';
+ctx.font = 'bold 13px Courier New';
+ctx.fillText(`ЭТАЖ ${i + 1}`, 80, y + 25);
+if ((floorProtection[i] || 0) > 0) {
+ctx.fillStyle = 'rgba(74, 240, 255, 0.7)';
+ctx.font = 'bold 12px Courier New';
+ctx.fillText(`🛡️ ${Math.ceil(floorProtection[i])}с`, 160, y + 25);
+}
+ctx.fillStyle = '#4a2c5a'; ctx.fillRect(25, y + 25, 10, h - 35); ctx.fillRect(W - 35, y + 25, 10, h - 35);
+}
+}
+function drawFloorTreasures() {
+for (let i = 0; i < state.floors; i++) {
+const y = floorY(i) + floorH() - 25;
+const x = W - 80;
+ctx.fillStyle = '#5a3a1a'; ctx.fillRect(x - 18, y - 18, 36, 22);
+ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - 16, y - 16, 32, 18);
+ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 18, y - 22, 36, 6);
+ctx.fillStyle = '#ffd700'; ctx.fillRect(x - 16, y - 16, 32, 2); ctx.fillRect(x - 2, y - 14, 4, 10);
+ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.arc(x, y - 8, 3, 0, Math.PI * 2); ctx.fill();
+const bob = Math.sin(tick * 0.05 + i) * 2;
+ctx.fillStyle = '#ffd700';
+ctx.beginPath(); ctx.arc(x - 12, y + 5 + bob, 2.5, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(x + 12, y + 5 - bob, 2.5, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(x, y + 8 + bob * 0.5, 2.5, 0, Math.PI * 2); ctx.fill();
+}
+}
+function drawTorch(t) {
+ctx.fillStyle = '#4a2c1a'; ctx.fillRect(t.x - 3, t.y, 6, 20);
+const flicker = Math.sin(tick * 0.3 + t.x) * 2; const size = 8 + Math.sin(tick * 0.5) * 2;
+const glow = ctx.createRadialGradient(t.x, t.y - 5, 0, t.x, t.y - 5, 50);
+glow.addColorStop(0, 'rgba(255, 150, 50, 0.5)'); glow.addColorStop(1, 'rgba(255, 150, 50, 0)');
+ctx.fillStyle = glow; ctx.fillRect(t.x - 50, t.y - 55, 100, 100);
+ctx.fillStyle = '#ff4500'; ctx.beginPath(); ctx.ellipse(t.x, t.y - 7 + flicker, size, size * 1.7, 0, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#ffa500'; ctx.beginPath(); ctx.ellipse(t.x, t.y - 6 + flicker, size * 0.7, size * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#ffff99'; ctx.beginPath(); ctx.ellipse(t.x, t.y - 5 + flicker, size * 0.3, size * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+}
+function drawTrap(slot) {
+const { x, y, trapType: type, disabled, cooldown, animTimer, firingTimer } = slot;
+ctx.save();
+ctx.translate(x, y);
+if (disabled > 0) ctx.globalAlpha = 0.3;
+if (deleteMode && slot.occupied) {
+ctx.strokeStyle = '#ff4a4a'; ctx.lineWidth = 2;
+ctx.strokeRect(-25, -35, 50, 45);
+}
+const isActive = cooldown > 0 || animTimer > 0 || firingTimer > 0;
+if (type === 'spikes') {
+const ext = animTimer > 0 ? Math.sin((animTimer / 0.5) * Math.PI) : 0;
+const spikeH = 6 + ext * 22;
+ctx.fillStyle = '#4a4a52'; ctx.fillRect(-24, 0, 48, 8);
+ctx.fillStyle = '#3a3a42'; ctx.fillRect(-24, 6, 48, 3);
+ctx.fillStyle = '#5a5a62'; ctx.fillRect(-24, 0, 48, 2);
+for (let i = -2; i <= 2; i++) {
+const sx = i * 9;
+ctx.fillStyle = '#555';
+ctx.beginPath(); ctx.moveTo(sx - 5, 2); ctx.lineTo(sx, -spikeH + 2); ctx.lineTo(sx + 5, 2); ctx.closePath(); ctx.fill();
+const grad = ctx.createLinearGradient(sx - 4, 0, sx + 4, 0);
+grad.addColorStop(0, isActive ? '#e8e8f0' : '#a8a8b0');
+grad.addColorStop(0.5, isActive ? '#ffffff' : '#d0d0d8');
+grad.addColorStop(1, isActive ? '#b0b0b8' : '#808088');
+ctx.fillStyle = grad;
+ctx.beginPath(); ctx.moveTo(sx - 4, 1); ctx.lineTo(sx, -spikeH); ctx.lineTo(sx + 4, 1); ctx.closePath(); ctx.fill();
+ctx.fillStyle = isActive ? '#fff' : '#e0e0e8';
+ctx.beginPath(); ctx.moveTo(sx - 1, -spikeH + 4); ctx.lineTo(sx, -spikeH); ctx.lineTo(sx + 1, -spikeH + 4); ctx.closePath(); ctx.fill();
+}
+} else if (type === 'acid') {
+const pulse = Math.sin(tick * 0.12) * 0.5 + 0.5;
+const glow = ctx.createRadialGradient(0, 4, 0, 0, 4, 34);
+glow.addColorStop(0, `rgba(74,255,74,${0.35 + pulse * 0.25})`);
+glow.addColorStop(1, 'rgba(74,255,74,0)');
+ctx.fillStyle = glow;
+ctx.beginPath(); ctx.ellipse(0, 4, 34, 12, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#2f9e2f';
+ctx.beginPath(); ctx.ellipse(0, 4, 26, 8, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#5adf3a';
+ctx.beginPath(); ctx.ellipse(0, 3, 18, 5, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#8fff5a';
+ctx.beginPath(); ctx.ellipse(-6, 2, 8, 3, 0, 0, Math.PI*2); ctx.fill();
+for (let i = 0; i < 3; i++) {
+const bx = Math.sin(tick * 0.1 + i * 2.1) * 12;
+const ph = (tick * 0.06 + i * 0.33) % 1;
+const by = 2 - ph * 10;
+const br = 2 + (i % 2);
+ctx.fillStyle = `rgba(143,255,90,${0.7 - ph * 0.5})`;
+ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
+}
+} else if (type === 'arrow') {
+const shake = firingTimer > 0 ? Math.sin(tick * 2) * 2 : 0;
+ctx.translate(shake, 0);
+ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-16, -4, 32, 8);
+ctx.fillStyle = '#6b4423'; ctx.fillRect(-13, -26, 26, 24);
+ctx.fillStyle = '#7a5030'; ctx.fillRect(-13, -26, 26, 4);
+ctx.strokeStyle = '#5a3a1a'; ctx.lineWidth = 1;
+for (let i = -10; i <= 10; i += 5) { ctx.beginPath(); ctx.moveTo(i, -22); ctx.lineTo(i, -2); ctx.stroke(); }
+ctx.fillStyle = '#6b4423';
+ctx.fillRect(-13, -30, 6, 5); ctx.fillRect(-3, -30, 6, 5); ctx.fillRect(7, -30, 6, 5);
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3;
+ctx.beginPath(); ctx.arc(0, -16, 10, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(-9, -20); ctx.lineTo(9, -12); ctx.stroke();
+ctx.strokeStyle = '#c0a060'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(-2, -16); ctx.lineTo(firingTimer > 0 ? 12 : 6, -16); ctx.stroke();
+if (firingTimer > 0) {
+ctx.fillStyle = '#ffaa00';
+ctx.beginPath(); ctx.arc(13, -16, 3, 0, Math.PI*2); ctx.fill();
+}
+} else if (type === 'rune') {
+const pulse = Math.sin(tick * 0.1) * 0.5 + 0.5;
+const rot = tick * 0.02;
+const explodeScale = animTimer > 0 ? (1 + (0.5 - animTimer) / 1.66) : 1;
+ctx.scale(explodeScale, explodeScale);
+const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 30);
+glow.addColorStop(0, `rgba(184,138,255,${0.4 + pulse * 0.4})`);
+glow.addColorStop(1, 'rgba(184,138,255,0)');
+ctx.fillStyle = glow;
+ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
+if (!settings.hideRuneEffect) {
+ctx.save();
+ctx.rotate(rot);
+ctx.strokeStyle = `rgba(184,138,255,${0.6 + pulse * 0.4})`;
+ctx.lineWidth = 2;
+ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.stroke();
+ctx.fillStyle = '#fff'; ctx.font = '10px serif';
+ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+const runes = ['ᚠ','ᚹ','ᛉ','ᛗ'];
+for (let i = 0; i < 4; i++) {
+const a = (Math.PI * 2 * i / 4);
+ctx.fillText(runes[i], Math.cos(a) * 14, Math.sin(a) * 14);
+}
+ctx.restore();
+}
+ctx.fillStyle = `rgba(255,255,255,${0.7 + pulse * 0.3})`;
+ctx.font = '16px serif';
+ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+ctx.fillText('ᚱ', 0, 0);
+} else if (type === 'flame') {
+const ext = animTimer > 0 ? Math.sin((animTimer / 0.5) * Math.PI) : 0.3;
+ctx.fillStyle = '#2a1a0a';
+ctx.beginPath(); ctx.ellipse(0, 4, 20, 6, 0, 0, Math.PI*2); ctx.fill();
+ctx.strokeStyle = '#1a0f05'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(-14, 4); ctx.lineTo(-5, 1); ctx.lineTo(3, 5); ctx.lineTo(12, 2); ctx.stroke();
+const pulse = Math.sin(tick * 0.25) * 0.5 + 0.5;
+ctx.fillStyle = `rgba(255,80,0,${0.5 + pulse * 0.3})`;
+ctx.beginPath(); ctx.ellipse(0, 4, 12, 4, 0, 0, Math.PI*2); ctx.fill();
+const flameSize = 10 + ext * 16 + Math.sin(tick * 0.3) * 3;
+for (let i = -1; i <= 1; i++) {
+const fx = i * 6;
+const fs = flameSize * (i === 0 ? 1 : 0.65);
+const flick = Math.sin(tick * 0.45 + i * 1.7) * 3;
+ctx.fillStyle = '#ff3000';
+ctx.beginPath(); ctx.ellipse(fx, -fs * 0.5 + flick, fs * 0.5, fs, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#ff8c00';
+ctx.beginPath(); ctx.ellipse(fx, -fs * 0.4 + flick, fs * 0.35, fs * 0.7, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#ffdd44';
+ctx.beginPath(); ctx.ellipse(fx, -fs * 0.3 + flick, fs * 0.18, fs * 0.4, 0, 0, Math.PI*2); ctx.fill();
+}
+if (!settings.hideDeathEffect) {
+for (let i = 0; i < 2; i++) {
+const sparkY = -((tick * 1.5 + i * 15) % 30);
+const sparkX = Math.sin(tick * 0.2 + i * 3) * 8;
+ctx.fillStyle = `rgba(255,200,50,${0.8 - ((tick * 1.5 + i * 15) % 30) / 30 * 0.6})`;
+ctx.beginPath(); ctx.arc(sparkX, sparkY, 1.5, 0, Math.PI*2); ctx.fill();
+}
+}
+} else if (type === 'ice') {
+const explodeScale = animTimer > 0 ? (1 + (0.33 - animTimer) / 0.33 * 0.6) : 1;
+ctx.scale(explodeScale, explodeScale);
+const pulse = 0.7 + Math.sin(tick * 0.15) * 0.3;
+const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 26);
+glow.addColorStop(0, `rgba(74,240,255,${0.5 * pulse})`);
+glow.addColorStop(1, 'rgba(74,240,255,0)');
+ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = 'rgba(120, 240, 255, 0.95)';
+ctx.beginPath();
+ctx.moveTo(0, -15); ctx.lineTo(10, 0); ctx.lineTo(0, 11); ctx.lineTo(-10, 0);
+ctx.closePath(); ctx.fill();
+ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+ctx.fillStyle = 'rgba(255,255,255,0.75)';
+ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(4, 0); ctx.lineTo(0, 4); ctx.lineTo(-4, 0); ctx.closePath(); ctx.fill();
+} else if (type === 'laser') {
+const pulse = animTimer > 0 ? 1 : 0.5 + Math.sin(tick * 0.2) * 0.5;
+ctx.fillStyle = `rgba(255, 0, 85, ${0.3 * pulse})`;
+ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#333';
+ctx.fillRect(-8, -12, 16, 12);
+ctx.fillStyle = '#ff0055';
+ctx.beginPath(); ctx.arc(0, -12, 4, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#fff';
+ctx.beginPath(); ctx.arc(0, -12, 2, 0, Math.PI*2); ctx.fill();
+}
+ctx.restore();
+}
+function drawMonsterInstance(m) {
+ctx.save();
+ctx.globalAlpha = m.alpha;
+ctx.translate(m.x, m.y);
+const bob = Math.sin(tick * 0.1 + m.frame) * 2;
+ctx.translate(0, bob);
+if (deleteMode && !m.dead) {
+ctx.strokeStyle = '#ff4a4a'; ctx.lineWidth = 2;
+ctx.strokeRect(-30, -55, 60, 65);
+}
+if (m.type === 'skeleton') {
+ctx.fillStyle = '#e8e0d0';
+ctx.beginPath(); ctx.arc(0, -20, 8, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#1a1a1a';
+ctx.beginPath(); ctx.arc(-3, -21, 2, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(3, -21, 2, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.moveTo(0, -19); ctx.lineTo(-1, -17); ctx.lineTo(1, -17); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#d8d0c0'; ctx.fillRect(-5, -15, 10, 3);
+ctx.fillStyle = '#f0e8d8';
+for (let i = -2; i <= 2; i++) ctx.fillRect(i * 2 - 0.5, -15, 1, 2);
+ctx.strokeStyle = '#e0d8c8'; ctx.lineWidth = 3;
+ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 2); ctx.stroke();
+ctx.strokeStyle = '#d8d0c0'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.arc(0, -9, 6, 0.2, Math.PI - 0.2); ctx.stroke();
+ctx.beginPath(); ctx.arc(0, -6, 5, 0.2, Math.PI - 0.2); ctx.stroke();
+ctx.beginPath(); ctx.arc(0, -3, 4, 0.2, Math.PI - 0.2); ctx.stroke();
+ctx.fillStyle = '#d8d0c0';
+ctx.beginPath(); ctx.ellipse(0, 3, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+ctx.strokeStyle = '#e0d8c8'; ctx.lineWidth = 2.5;
+ctx.beginPath(); ctx.moveTo(-3, -10); ctx.lineTo(-11, -5); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(3, -10); ctx.lineTo(9, -6); ctx.stroke();
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2.5;
+ctx.beginPath(); ctx.arc(-14, -6, 8, Math.PI/2, Math.PI*1.5); ctx.stroke();
+ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(-14, -14); ctx.lineTo(-14, 2); ctx.stroke();
+ctx.strokeStyle = '#e0d8c8'; ctx.lineWidth = 2.5;
+ctx.beginPath(); ctx.moveTo(-2, 4); ctx.lineTo(-4, 12); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(2, 4); ctx.lineTo(4, 12); ctx.stroke();
+ctx.fillStyle = '#d8d0c0';
+ctx.fillRect(-6, 11, 4, 2); ctx.fillRect(2, 11, 4, 2);
+} else if (m.type === 'goblin') {
+ctx.fillStyle = '#3f7a2a';
+ctx.beginPath(); ctx.ellipse(0, -6, 9, 11, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#5a9a3a';
+ctx.beginPath(); ctx.ellipse(0, -3, 6, 7, 0, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#4a8a2f';
+ctx.beginPath(); ctx.arc(0, -20, 8, 0, Math.PI*2); ctx.fill();
+ctx.beginPath(); ctx.moveTo(-7, -22); ctx.lineTo(-16, -26); ctx.lineTo(-7, -17); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(7, -22); ctx.lineTo(16, -26); ctx.lineTo(7, -17); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#3a6a22';
+ctx.beginPath(); ctx.moveTo(-8, -21); ctx.lineTo(-13, -24); ctx.lineTo(-8, -18); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(8, -21); ctx.lineTo(13, -24); ctx.lineTo(8, -18); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#ffdd33';
+ctx.beginPath(); ctx.arc(-3, -21, 2, 0, Math.PI*2); ctx.fill();
+ctx.beginPath(); ctx.arc(3, -21, 2, 0, Math.PI*2); ctx.fill();
+ctx.fillStyle = '#000';
+ctx.beginPath(); ctx.arc(-3, -21, 1, 0, Math.PI*2); ctx.fill();
+ctx.beginPath(); ctx.arc(3, -21, 1, 0, Math.PI*2); ctx.fill();
+ctx.strokeStyle = '#2a4a1a'; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(-4, -15); ctx.lineTo(4, -15); ctx.stroke();
+ctx.fillStyle = '#fff';
+ctx.beginPath(); ctx.moveTo(-3, -15); ctx.lineTo(-2, -13); ctx.lineTo(-1, -15); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(1, -15); ctx.lineTo(2, -13); ctx.lineTo(3, -15); ctx.closePath(); ctx.fill();
+ctx.strokeStyle = '#4a8a2f'; ctx.lineWidth = 3;
+ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-13, -2); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(8, -8); ctx.lineTo(13, -2); ctx.stroke();
+ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(13, -2); ctx.lineTo(17, -8); ctx.stroke();
+ctx.fillStyle = '#ccc';
+ctx.beginPath(); ctx.moveTo(16, -7); ctx.lineTo(18, -10); ctx.lineTo(19, -6); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#3f7a2a';
+ctx.fillRect(-6, 4, 4, 6); ctx.fillRect(2, 4, 4, 6);
+ctx.fillStyle = '#6b4423'; ctx.fillRect(-7, -2, 14, 5);
+} else if (m.type === 'demon') {
+ctx.fillStyle = '#8a1a1a'; ctx.beginPath(); ctx.arc(0, -30, 10, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#2a0a0a';
+ctx.beginPath(); ctx.moveTo(-8, -37); ctx.lineTo(-12, -47); ctx.lineTo(-5, -37); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(8, -37); ctx.lineTo(12, -47); ctx.lineTo(5, -37); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#ff0'; ctx.fillRect(-5, -31, 3, 3); ctx.fillRect(2, -31, 3, 3);
+ctx.fillStyle = '#6a0a0a'; ctx.fillRect(-11, -20, 22, 18);
+ctx.fillStyle = '#8a1a1a'; ctx.fillRect(-17, -18, 6, 14); ctx.fillRect(11, -18, 6, 14);
+ctx.fillStyle = '#4a0a0a'; ctx.fillRect(-9, -2, 6, 10); ctx.fillRect(3, -2, 6, 10);
+ctx.fillStyle = '#3a0a0a';
+ctx.beginPath(); ctx.moveTo(-11, -20); ctx.lineTo(-28, -30); ctx.lineTo(-22, -10); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(11, -20); ctx.lineTo(28, -30); ctx.lineTo(22, -10); ctx.closePath(); ctx.fill();
+} else if (m.type === 'dragon') {
+ctx.fillStyle = '#0d3d0d';
+ctx.beginPath(); ctx.moveTo(24, -4); ctx.quadraticCurveTo(40, -10, 46, 2); ctx.quadraticCurveTo(38, 0, 30, 2); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#1a4a1a';
+ctx.beginPath(); ctx.ellipse(0, -6, 26, 17, 0, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#245a24';
+for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.ellipse(i * 9, -6, 6, 10, 0, 0, Math.PI * 2); ctx.fill(); }
+ctx.fillStyle = '#3a6a3a';
+ctx.beginPath(); ctx.ellipse(0, 0, 18, 8, 0, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#0d3d0d';
+for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 8 - 3, -20); ctx.lineTo(i * 8, -30); ctx.lineTo(i * 8 + 3, -20); ctx.closePath(); ctx.fill(); }
+ctx.fillStyle = '#0a3a0a';
+ctx.beginPath(); ctx.moveTo(-6, -18); ctx.lineTo(-30, -42); ctx.lineTo(-18, -14); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(6, -18); ctx.lineTo(30, -42); ctx.lineTo(18, -14); ctx.closePath(); ctx.fill();
+ctx.fillStyle = 'rgba(30,80,30,0.6)';
+ctx.beginPath(); ctx.moveTo(-10, -20); ctx.lineTo(-26, -38); ctx.lineTo(-16, -16); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(10, -20); ctx.lineTo(26, -38); ctx.lineTo(16, -16); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#2a5a2a';
+ctx.beginPath(); ctx.ellipse(-24, -16, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#1a3a1a';
+ctx.beginPath(); ctx.moveTo(-32, -16); ctx.lineTo(-40, -14); ctx.lineTo(-32, -12); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#ffcc00';
+ctx.beginPath(); ctx.arc(-27, -18, 2.5, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(-21, -18, 2.5, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#000';
+ctx.beginPath(); ctx.arc(-27, -18, 1, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(-21, -18, 1, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#0d3d0d';
+ctx.beginPath(); ctx.moveTo(-28, -24); ctx.lineTo(-32, -32); ctx.lineTo(-26, -24); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(-20, -24); ctx.lineTo(-18, -32); ctx.lineTo(-16, -24); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#1a4a1a';
+ctx.fillRect(-16, 8, 8, 8); ctx.fillRect(8, 8, 8, 8);
+ctx.fillStyle = '#ccc';
+ctx.fillRect(-16, 14, 3, 3); ctx.fillRect(-11, 14, 3, 3);
+ctx.fillRect(8, 14, 3, 3); ctx.fillRect(13, 14, 3, 3);
+}
+ctx.restore();
+if (!m.dead && m.hp < m.maxHp) {
+const hpPct = Math.max(0, m.hp / m.maxHp);
+ctx.fillStyle = '#000'; ctx.fillRect(m.x - 20, m.y - 55, 40, 4);
+ctx.fillStyle = hpPct > 0.5 ? '#4f4' : hpPct > 0.25 ? '#ff4' : '#f44';
+ctx.fillRect(m.x - 20, m.y - 55, 40 * hpPct, 4);
+}
+}
+function drawGoblinSlayer() {
+if (!goblinSlayer || goblinSlayer.dead) return;
+const hpPct = Math.max(0, goblinSlayer.hp / goblinSlayer.maxHp);
+const bossBarY = 50;
+ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, bossBarY, W, 40);
+ctx.fillStyle = '#3a0000'; ctx.fillRect(0, bossBarY, W, 40);
+ctx.fillStyle = '#ff0000'; ctx.fillRect(0, bossBarY, W * hpPct, 40);
+ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.strokeRect(0, bossBarY, W, 40);
+ctx.fillStyle = '#fff'; ctx.font = 'bold 24px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+ctx.fillText(`⚔️ РАСХИТИТЕЛЬ ⚔️  ${fmt(goblinSlayer.hp)} / ${fmt(goblinSlayer.maxHp)} HP`, W/2, bossBarY + 20);
+const gs = goblinSlayer;
+const centerY = H / 2 + 60;
+const scaleGS = Math.min(H / 500, W / 600) * 1.2;
+ctx.save();
+ctx.translate(gs.x, centerY);
+ctx.scale(scaleGS, scaleGS);
+ctx.fillStyle = 'rgba(0,0,0,0.4)';
+ctx.beginPath(); ctx.ellipse(0, 180, 140, 30, 0, 0, Math.PI * 2); ctx.fill();
+const capeWave = Math.sin(tick * 0.05) * 15;
+ctx.fillStyle = '#5a0000';
+ctx.beginPath(); ctx.moveTo(-60, -80); ctx.quadraticCurveTo(-120 + capeWave, 50, -90 + capeWave, 180); ctx.lineTo(90 - capeWave, 180); ctx.quadraticCurveTo(120 - capeWave, 50, 60, -80); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#3a0000';
+ctx.beginPath(); ctx.moveTo(-50, -70); ctx.quadraticCurveTo(-100 + capeWave, 50, -70 + capeWave, 180); ctx.lineTo(-30, 180); ctx.lineTo(-30, -50); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-35, 120, 25, 60); ctx.fillRect(10, 120, 25, 60);
+ctx.fillStyle = '#555';
+ctx.beginPath(); ctx.arc(-22, 130, 15, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(22, 130, 15, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#888';
+ctx.beginPath(); ctx.arc(-22, 128, 10, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(22, 128, 10, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#aaa';
+for (let i = 0; i < 3; i++) {
+ctx.beginPath(); ctx.moveTo(-30 + i * 8, 125); ctx.lineTo(-28 + i * 8, 115); ctx.lineTo(-26 + i * 8, 125); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(14 + i * 8, 125); ctx.lineTo(16 + i * 8, 115); ctx.lineTo(18 + i * 8, 125); ctx.closePath(); ctx.fill();
+}
+ctx.fillStyle = '#3a3a3a';
+ctx.beginPath(); ctx.moveTo(-55, -70); ctx.lineTo(-50, 130); ctx.lineTo(50, 130); ctx.lineTo(55, -70); ctx.closePath(); ctx.fill();
+ctx.strokeStyle = 'rgba(200,200,200,0.3)'; ctx.lineWidth = 0.5;
+for (let y = -60; y < 120; y += 5) { ctx.beginPath(); ctx.moveTo(-50, y); ctx.lineTo(50, y); ctx.stroke(); }
+for (let x = -45; x < 50; x += 5) { ctx.beginPath(); ctx.moveTo(x, -60); ctx.lineTo(x, 120); ctx.stroke(); }
+ctx.fillStyle = '#1a0a0a';
+ctx.beginPath(); ctx.moveTo(-45, -60); ctx.lineTo(-40, 60); ctx.lineTo(40, 60); ctx.lineTo(45, -60); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#8a0000';
+ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-20, -20); ctx.lineTo(-20, 20); ctx.lineTo(0, 40); ctx.lineTo(20, 20); ctx.lineTo(20, -20); ctx.closePath(); ctx.fill();
+ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 2; ctx.stroke();
+const runeGlow = 0.5 + Math.sin(tick * 0.1) * 0.3;
+ctx.fillStyle = `rgba(255, 50, 50, ${runeGlow})`;
+ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#3a2a1a'; ctx.fillRect(-45, 60, 90, 15);
+ctx.fillStyle = '#e8e0d0';
+for (let i = 0; i < 4; i++) {
+ctx.beginPath(); ctx.arc(-30 + i * 20, 67, 5, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#000'; ctx.fillRect(-32 + i * 20, 65, 1, 2); ctx.fillRect(-28 + i * 20, 65, 1, 2); ctx.fillStyle = '#e8e0d0';
+}
+ctx.fillStyle = '#2a2a2a';
+ctx.beginPath(); ctx.arc(-55, -80, 25, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(55, -80, 25, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#aaa';
+for (let a = 0; a < 6; a++) {
+const angle = (Math.PI * 2 * a) / 6;
+const sx = -55 + Math.cos(angle) * 25, sy = -80 + Math.sin(angle) * 25;
+const ex = -55 + Math.cos(angle) * 38, ey = -80 + Math.sin(angle) * 38;
+ctx.beginPath(); ctx.moveTo(sx - 3, sy); ctx.lineTo(ex, ey); ctx.lineTo(sx + 3, sy); ctx.closePath(); ctx.fill();
+const sx2 = 55 + Math.cos(angle) * 25, sy2 = -80 + Math.sin(angle) * 25;
+const ex2 = 55 + Math.cos(angle) * 38, ey2 = -80 + Math.sin(angle) * 38;
+ctx.beginPath(); ctx.moveTo(sx2 - 3, sy2); ctx.lineTo(ex2, ey2); ctx.lineTo(sx2 + 3, sy2); ctx.closePath(); ctx.fill();
+}
+ctx.fillStyle = '#3a3a3a'; ctx.fillRect(-75, -70, 25, 110);
+ctx.fillStyle = '#4a4a4a'; ctx.beginPath(); ctx.arc(-100, -20, 45, 0, Math.PI * 2); ctx.fill();
+ctx.strokeStyle = '#888'; ctx.lineWidth = 4; ctx.stroke();
+ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(-100, -20, 38, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.arc(-100, -25, 18, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#000';
+ctx.beginPath(); ctx.arc(-106, -28, 4, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(-94, -28, 4, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.moveTo(-100, -22); ctx.lineTo(-98, -18); ctx.lineTo(-102, -18); ctx.closePath(); ctx.fill();
+ctx.fillRect(-108, -12, 16, 2);
+for (let i = 0; i < 5; i++) ctx.fillRect(-107 + i * 4, -12, 1, 5);
+ctx.fillStyle = '#3a3a3a'; ctx.fillRect(50, -70, 25, 110);
+const swing = Math.sin(tick * 0.08) * 0.3;
+ctx.save(); ctx.translate(85, -100); ctx.rotate(swing);
+ctx.fillStyle = '#3a2a1a'; ctx.fillRect(-5, 0, 10, 40);
+ctx.fillStyle = '#8a0000'; ctx.beginPath(); ctx.arc(0, 45, 8, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#6a6a6a'; ctx.fillRect(-25, -8, 50, 8);
+ctx.fillStyle = '#888'; ctx.fillRect(-25, -8, 50, 2);
+ctx.fillStyle = '#1a0000';
+ctx.beginPath(); ctx.moveTo(-15, -8); ctx.lineTo(-20, -200); ctx.lineTo(0, -220); ctx.lineTo(20, -200); ctx.lineTo(15, -8); ctx.closePath(); ctx.fill();
+ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 3; ctx.stroke();
+ctx.fillStyle = '#ff3030';
+for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(0, -40 - i * 30, 3, 0, Math.PI * 2); ctx.fill(); }
+ctx.fillStyle = 'rgba(138, 0, 0, 0.7)';
+ctx.beginPath(); ctx.moveTo(-10, -60); ctx.quadraticCurveTo(-15, -40, -8, -30); ctx.lineTo(-12, -50); ctx.closePath(); ctx.fill();
+ctx.restore();
+ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-15, -105, 30, 30);
+ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(0, -130, 35, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.arc(0, -135, 33, Math.PI, 0); ctx.fill();
+ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -135, 33, Math.PI, 0); ctx.stroke();
+ctx.fillStyle = '#3a2a1a';
+ctx.beginPath(); ctx.moveTo(-25, -150); ctx.quadraticCurveTo(-60, -200, -80, -240); ctx.quadraticCurveTo(-75, -235, -70, -220); ctx.quadraticCurveTo(-45, -190, -20, -145); ctx.closePath(); ctx.fill();
+ctx.beginPath(); ctx.moveTo(25, -150); ctx.quadraticCurveTo(60, -200, 80, -240); ctx.quadraticCurveTo(75, -235, 70, -220); ctx.quadraticCurveTo(45, -190, 20, -145); ctx.closePath(); ctx.fill();
+ctx.strokeStyle = '#1a0a0a'; ctx.lineWidth = 1;
+for (let i = 0; i < 4; i++) {
+ctx.beginPath(); ctx.moveTo(-30 - i * 12, -160 - i * 18); ctx.lineTo(-25 - i * 12, -155 - i * 18); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(30 + i * 12, -160 - i * 18); ctx.lineTo(25 + i * 12, -155 - i * 18); ctx.stroke();
+}
+ctx.fillStyle = '#000'; ctx.fillRect(-25, -135, 50, 8);
+const eyeGlow = 0.7 + Math.sin(tick * 0.15) * 0.3;
+ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
+ctx.beginPath(); ctx.arc(-12, -131, 5, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(12, -131, 5, 0, Math.PI * 2); ctx.fill();
+ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20;
+ctx.beginPath(); ctx.arc(-12, -131, 3, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(12, -131, 3, 0, Math.PI * 2); ctx.fill();
+ctx.shadowBlur = 0;
+ctx.fillStyle = '#1a1a1a';
+ctx.beginPath(); ctx.moveTo(-20, -125); ctx.lineTo(-25, -110); ctx.lineTo(25, -110); ctx.lineTo(20, -125); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#e8e0d0';
+for (let i = 0; i < 5; i++) {
+ctx.beginPath(); ctx.moveTo(-15 + i * 7, -115); ctx.lineTo(-12 + i * 7, -108); ctx.lineTo(-9 + i * 7, -115); ctx.closePath(); ctx.fill();
+}
+ctx.strokeStyle = '#5a0000'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(-20, -150); ctx.lineTo(-5, -120); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(15, -145); ctx.lineTo(20, -125); ctx.stroke();
+ctx.fillStyle = 'rgba(138, 0, 0, 0.6)';
+ctx.beginPath(); ctx.moveTo(-18, -115); ctx.quadraticCurveTo(-20, -100, -15, -95); ctx.lineTo(-12, -108); ctx.closePath(); ctx.fill();
+ctx.restore();
+}
+function drawAdventurer(a) {
+if (a.dead) {
+if (settings.hideDeathEffect) return;
+ctx.globalAlpha = Math.max(0, 1 - a.deathTimer / 0.5);
+ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.deathTimer * 6); ctx.scale(a.size, a.size);
+ctx.fillStyle = a.color; ctx.fillRect(-12, -7, 24, 14);
+ctx.restore(); ctx.globalAlpha = 1; return;
+}
+ctx.save();
+ctx.translate(a.x, a.y); ctx.scale(a.size, a.size);
+if (a.isDeath) {
+const skinColor = a.deathSkin === 'violet' ? '#8a2be2' : a.deathSkin === 'red' ? '#ff2020' : a.deathSkin === 'angel' ? '#fff8dc' : '#2a2a2a';
+ctx.fillStyle = skinColor;
+ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(-15, 10); ctx.lineTo(15, 10); ctx.closePath(); ctx.fill();
+ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, -20, 9, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = a.deathSkin === 'angel' ? '#ffd700' : '#ff0000';
+ctx.beginPath(); ctx.arc(-3, -20, 2, 0, Math.PI*2); ctx.fill();
+ctx.beginPath(); ctx.arc(3, -20, 2, 0, Math.PI*2); ctx.fill();
+ctx.strokeStyle = '#888'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(10, -25); ctx.lineTo(20, 5); ctx.stroke();
+ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(20, 5, 8, Math.PI, Math.PI*1.5); ctx.stroke();
+if (a.deathSkin === 'angel') {
+ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, -35, 10, 3, 0, 0, Math.PI*2); ctx.stroke();
+ctx.fillStyle = 'rgba(255,255,255,0.5)';
+ctx.beginPath(); ctx.ellipse(-18, -15, 8, 15, -0.3, 0, Math.PI*2); ctx.fill();
+ctx.beginPath(); ctx.ellipse(18, -15, 8, 15, 0.3, 0, Math.PI*2); ctx.fill();
+}
+ctx.restore();
+const hpPct = Math.max(0, a.hp / a.maxHp);
+const barWidth = 50, barHeight = 6;
+const barX = a.x - barWidth / 2, barY = a.y - 45 * a.size;
+ctx.fillStyle = '#000'; ctx.fillRect(barX, barY, barWidth, barHeight);
+ctx.fillStyle = hpPct > 0.5 ? '#8a2be2' : hpPct > 0.25 ? '#ff4' : '#f44';
+ctx.fillRect(barX, barY, barWidth * hpPct, barHeight);
+return;
+}
+const bob = (a.fighting || a.frozen > 0) ? 0 : Math.sin(tick * 0.2 + a.x * 0.1) * 2;
+if (a.hitFlash > 0) { ctx.fillStyle = '#fff'; a.hitFlash--; }
+else if (a.frozen > 0) ctx.fillStyle = '#8fd8ff';
+else ctx.fillStyle = a.color;
+if (a.class === 'berserker') {
+const rage = 1 - (a.hp / a.maxHp);
+ctx.fillStyle = `rgb(${Math.floor(138 + rage * 117)}, ${Math.floor(26 - rage * 20)}, ${Math.floor(26 - rage * 20)})`;
+}
+const bodyW = a.class === 'berserker' ? 16 : 14;
+const bodyH = a.class === 'berserker' ? 18 : 16;
+ctx.fillRect(-bodyW/2, -14 + bob, bodyW, bodyH);
+ctx.beginPath(); ctx.arc(0, -19 + bob, 6, 0, Math.PI * 2); ctx.fill();
+const legAnim = (a.fighting || a.frozen > 0) ? 0 : Math.sin(tick * 0.3 + a.x * 0.1);
+ctx.fillRect(-6, 2 + bob, 5, 7 + legAnim); ctx.fillRect(1, 2 + bob, 5, 7 - legAnim);
+if (a.frozen > 0) { ctx.strokeStyle = '#4af0ff'; ctx.lineWidth = 1; ctx.strokeRect(-9, -25, 18, 32); }
+if (a.poisoned > 0 && !settings.hidePoisonEffect) {
+ctx.fillStyle = 'rgba(74, 255, 74, 0.7)';
+const bp = (tick * 0.05) % 1;
+ctx.beginPath(); ctx.arc(-4, -25 - bp * 5, 2, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(3, -28 - bp * 3, 1.5, 0, Math.PI * 2); ctx.fill();
+ctx.beginPath(); ctx.arc(0, -22 - bp * 4, 1.8, 0, Math.PI * 2); ctx.fill();
+}
+if (a.burning > 0 && hasArtifact('flame_dot')) {
+const fp = (tick * 0.1) % 1;
+ctx.font = '10px serif'; ctx.fillText('🔥', -5, -25 - fp * 4); ctx.fillText('🔥', 2, -28 - fp * 3);
+}
+if (a.class === 'bard' && !settings.hideBardEffect) {
+for (let ring = 0; ring < 2; ring++) {
+const phase = ((tick * 0.012) + ring * 0.5) % 1;
+const radius = 100 * phase;
+const alpha = 0.35 * (1 - phase);
+if (alpha <= 0) continue;
+ctx.strokeStyle = `rgba(255, 136, 204, ${alpha})`; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.arc(0, 0, radius / a.size, 0, Math.PI * 2); ctx.stroke();
+}
+}
+if (a.class === 'berserker') {
+const rage = 1 - (a.hp / a.maxHp);
+const swing = Math.sin(tick * 0.4) * (0.3 + rage * 0.5);
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3;
+ctx.beginPath(); ctx.moveTo(8, -10); ctx.lineTo(22 + Math.cos(swing) * 5, -22 + Math.sin(swing) * 5); ctx.stroke();
+ctx.fillStyle = '#aaa'; ctx.beginPath(); ctx.moveTo(20, -25); ctx.lineTo(28, -20); ctx.lineTo(25, -14); ctx.lineTo(17, -19); ctx.closePath(); ctx.fill();
+} else if (a.class === 'bard') {
+ctx.fillStyle = '#8a6a3a'; ctx.beginPath(); ctx.ellipse(8, -5, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(15, -22); ctx.stroke();
+} else if (a.class === 'shield') {
+ctx.fillStyle = '#4a5a7a'; ctx.fillRect(-6, -11, 12, 16);
+ctx.strokeStyle = '#8899bb'; ctx.lineWidth = 1.5; ctx.strokeRect(-6, -11, 12, 16);
+ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(0, -3, 3, 0, Math.PI * 2); ctx.fill();
+if (a.shieldHits > 0) {
+ctx.fillStyle = `rgba(100, 150, 255, ${0.2 + a.shieldHits * 0.1})`;
+ctx.fillRect(-7, -12, 14, 18);
+}
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2;
+const swing = Math.sin(tick * 0.3) * 0.4;
+ctx.beginPath(); ctx.moveTo(8, -8); ctx.lineTo(14 + Math.cos(swing) * 4, -18 + Math.sin(swing) * 4); ctx.stroke();
+} else if (a.class === 'warrior' || a.fighting) {
+ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2; const swing = Math.sin(tick * 0.3) * 0.5;
+ctx.beginPath(); ctx.moveTo(7, -10); ctx.lineTo(15 + Math.cos(swing) * 5, -15 + Math.sin(swing) * 5); ctx.stroke();
+} else if (a.class === 'mage') {
+ctx.strokeStyle = '#b88aff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(0, -15); ctx.stroke();
+ctx.fillStyle = '#b88aff'; ctx.beginPath(); ctx.arc(0, -27, 3, 0, Math.PI * 2); ctx.fill();
+} else if (a.class === 'archer') {
+ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(8, -10, 6, -Math.PI/2, Math.PI/2); ctx.stroke();
+} else if (a.class === 'cleric') {
+ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(0, -15); ctx.moveTo(-3, -20); ctx.lineTo(3, -20); ctx.stroke();
+} else if (a.class === 'rogue') {
+ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+ctx.beginPath(); ctx.moveTo(7, -10); ctx.lineTo(12, -8); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(-7, -10); ctx.lineTo(-12, -8); ctx.stroke();
+}
+ctx.restore();
+const hpPct = Math.max(0, a.hp / a.maxHp);
+const barWidth = 36, barHeight = 5;
+const barX = a.x - barWidth / 2, barY = a.y - 30 * a.size;
+ctx.fillStyle = '#000'; ctx.fillRect(barX, barY, barWidth, barHeight);
+ctx.fillStyle = hpPct > 0.5 ? '#4f4' : hpPct > 0.25 ? '#ff4' : '#f44';
+ctx.fillRect(barX, barY, barWidth * hpPct, barHeight);
+if (a.shieldHits > 0 && a.class === 'shield') {
+ctx.fillStyle = '#88bbff';
+for (let i = 0; i < a.shieldHits; i++) {
+ctx.fillRect(barX + i * 4, barY - 4, 2.5, 2);
+}
+}
+}
+function drawParticles() {
+for (const p of particles) { ctx.globalAlpha = p.life / p.maxLife; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }
+ctx.globalAlpha = 1;
+}
+function drawProjectiles() {
+for (const p of projectiles) {
+ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(p.x - p.vx * 0.05, p.y - p.vy * 0.05, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+}
+}
+function drawEffects() {
+for (const e of effects) {
+const alpha = e.life / e.maxLife;
+ctx.globalAlpha = alpha;
+if (e.type === 'cross') {
+ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3;
+ctx.beginPath(); ctx.moveTo(e.x, e.y - 10); ctx.lineTo(e.x, e.y + 10); ctx.moveTo(e.x - 7, e.y); ctx.lineTo(e.x + 7, e.y); ctx.stroke();
+} else if (e.type === 'crit') {
+ctx.fillStyle = '#ffaa00'; ctx.font = `bold ${e.size}px Courier New`; ctx.textAlign = 'center'; ctx.fillText('✦', e.x, e.y);
+} else if (e.type === 'supercrit') {
+ctx.fillStyle = '#ff6600'; ctx.font = `bold ${e.size}px Courier New`; ctx.textAlign = 'center'; ctx.fillText('✦✦', e.x, e.y);
+ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y - 5, e.size * 0.6, 0, Math.PI * 2); ctx.stroke();
+} else if (e.type === 'megacrit') {
+ctx.fillStyle = '#ff0000'; ctx.font = `bold ${e.size}px Courier New`; ctx.textAlign = 'center'; ctx.fillText('✦✦✦', e.x, e.y);
+ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y - 5, e.size * 0.8, 0, Math.PI * 2); ctx.stroke();
+ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y - 5, e.size * 1.2, 0, Math.PI * 2); ctx.stroke();
+} else if (e.type === 'ultracrit') {
+ctx.fillStyle = '#ff00ff'; ctx.font = `bold ${e.size}px Courier New`; ctx.textAlign = 'center'; ctx.fillText('✦✦✦✦', e.x, e.y);
+ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y - 5, e.size * 0.9, 0, Math.PI * 2); ctx.stroke();
+ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y - 5, e.size * 1.3, 0, Math.PI * 2); ctx.stroke();
+} else if (e.type === 'loot') {
+const prefix = e.amount >= 0 ? '+' : '-';
+const display = fmt(Math.abs(e.amount));
+ctx.fillStyle = e.amount >= 0 ? '#ffd700' : '#ff4a4a';
+ctx.font = 'bold 16px Courier New'; ctx.textAlign = 'center';
+ctx.fillText(`${prefix}${display} 💰`, e.x, e.y - (1 - alpha) * 30);
+} else if (e.type === 'dragonfire') {
+const progress = 1 - alpha;
+const size = 80 + progress * 100;
+ctx.fillStyle = `rgba(255, 100, 0, ${alpha * 0.7})`;
+ctx.beginPath(); ctx.moveTo(e.x - 30, e.y - 15); ctx.lineTo(e.x - 30 - size, e.y - 20); ctx.lineTo(e.x - 30 - size, e.y - 10); ctx.closePath(); ctx.fill();
+} else if (e.type === 'ice_nova') {
+if (!settings.hideIceEffect) {
+const progress = 1 - alpha;
+const radius = 20 + progress * 220;
+ctx.strokeStyle = `rgba(74, 240, 255, ${alpha * 0.9})`; ctx.lineWidth = 4 * alpha + 1;
+ctx.beginPath(); ctx.arc(e.x, e.y, radius, 0, Math.PI * 2); ctx.stroke();
+ctx.strokeStyle = `rgba(200, 250, 255, ${alpha * 0.5})`; ctx.lineWidth = 8 * alpha;
+ctx.beginPath(); ctx.arc(e.x, e.y, radius * 0.7, 0, Math.PI * 2); ctx.stroke();
+ctx.strokeStyle = `rgba(150, 240, 255, ${alpha * 0.8})`; ctx.lineWidth = 2;
+for (let i = 0; i < 6; i++) {
+const ang = (Math.PI * 2 * i / 6) + progress * 0.5;
+ctx.beginPath();
+ctx.moveTo(e.x + Math.cos(ang) * radius * 0.3, e.y + Math.sin(ang) * radius * 0.3);
+ctx.lineTo(e.x + Math.cos(ang) * radius, e.y + Math.sin(ang) * radius);
+ctx.stroke();
+}
+}
+} else if (e.type === 'rune_vertical') {
+ctx.strokeStyle = `rgba(184, 138, 255, ${alpha * 0.6})`; ctx.lineWidth = e.width;
+ctx.beginPath(); ctx.moveTo(e.x, 0); ctx.lineTo(e.x, H); ctx.stroke();
+ctx.strokeStyle = `rgba(255, 200, 255, ${alpha * 0.3})`; ctx.lineWidth = e.width * 2;
+ctx.beginPath(); ctx.moveTo(e.x, 0); ctx.lineTo(e.x, H); ctx.stroke();
+} else if (e.type === 'rune_horizontal') {
+ctx.strokeStyle = `rgba(184, 138, 255, ${alpha * 0.4})`; ctx.lineWidth = e.width;
+ctx.beginPath(); ctx.moveTo(0, e.y); ctx.lineTo(W, e.y); ctx.stroke();
+} else if (e.type === 'laser_beam') {
+ctx.save();
+ctx.globalAlpha = alpha;
+ctx.strokeStyle = '#ff0055';
+ctx.lineWidth = 3;
+ctx.shadowColor = '#ff0055';
+ctx.shadowBlur = 10;
+ctx.beginPath();
+ctx.moveTo(e.x1, e.y1);
+ctx.lineTo(e.x2, e.y2);
+ctx.stroke();
+ctx.strokeStyle = '#fff';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(e.x1, e.y1);
+ctx.lineTo(e.x2, e.y2);
+ctx.stroke();
+ctx.restore();
+}
+ctx.globalAlpha = 1;
+}
+}
+function drawPendingPreview() {
+if (!pendingShopItem || !cursorOnCanvas) return;
+ctx.save();
+ctx.globalAlpha = 0.5;
+if (pendingShopItem.kind === 'trap') {
+const tempSlot = { x: cursorX, y: cursorY, trapType: pendingShopItem.type, disabled: 0, cooldown: 0, animTimer: 0, firingTimer: 0, occupied: true };
+drawTrap(tempSlot);
+} else {
+const tempMon = { x: cursorX, y: cursorY, type: pendingShopItem.type, hp: 1, maxHp: 1, alpha: 0.5, frame: 0, dead: false };
+drawMonsterInstance(tempMon);
+}
+ctx.restore();
+}
+function drawPlayerDead() {
+ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, W, H);
+ctx.fillStyle = '#ff0000'; ctx.font = 'bold 48px Courier New'; ctx.textAlign = 'center';
+ctx.fillText('☠️ ВЫ ПОГИБЛИ', W/2, H/2 - 40);
+ctx.fillStyle = '#d4c5a0'; ctx.font = '16px Courier New';
+ctx.fillText('Смерть достигла сокровищницы!', W/2, H/2);
+ctx.fillStyle = '#ffd700'; ctx.font = 'bold 18px Courier New';
+const pulse = Math.sin(tick * 0.1) * 0.3 + 0.7;
+ctx.globalAlpha = pulse;
+ctx.fillText('[ Кликните — перерождения и артефакты сохранены ]', W/2, H/2 + 80);
+ctx.globalAlpha = 1;
+}
+function drawPaused() {
+ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
+ctx.fillStyle = '#ffd700'; ctx.font = 'bold 40px Courier New'; ctx.textAlign = 'center';
+ctx.fillText('⏸️ ПАУЗА', W/2, H/2);
+}
+function addCritEffect(x, y, level) {
+if (level === 1 && !settings.showNormalCrit) return;
+if (level === 2 && !settings.showSuperCrit) return;
+if (level === 3 && !settings.showMegaCrit) return;
+if (level === 4 && !settings.showUltraCrit) return;
+const type = level === 1 ? 'crit' : level === 2 ? 'supercrit' : level === 3 ? 'megacrit' : 'ultracrit';
+const size = level === 1 ? 14 : level === 2 ? 20 : level === 3 ? 28 : 36;
+effects.push({ type, x, y: y - 30, life: 0.67, maxLife: 0.67, size });
+}
+function getSpikesMultiplier(slot) {
+if (!hasArtifact('spikes_mult')) return 1;
+const sameFloor = trapSlots.filter(s => s.floor === slot.floor && s.occupied && s.trapType === 'spikes');
+sameFloor.sort((a, b) => a.x - b.x);
+const position = sameFloor.findIndex(s => s.id === slot.id) + 1;
+return position;
+}
+function rollCritLevel() {
+if (Math.random() >= state.critChance) return 0;
+let lvl = 1;
+if (state.critChance > 1 && Math.random() < Math.min(state.critChance - 1, 1)) {
+lvl = 2;
+if (state.critChance > 2 && Math.random() < Math.min(state.critChance - 2, 1)) {
+lvl = 3;
+if (state.critChance > 4 && Math.random() < Math.min(state.critChance - 4, 1)) { lvl = 4; }
+}
+}
+return lvl;
+}
+const CRIT_MULT = [1, 2, 4, 8, 16];
+
+function getWaveInterval(wave, rebirthCount) {
+    let base = 40;
+    if (wave <= 1) base = 32;
+    else if (wave >= 10) base = 33;
+
+    let reduction = 0;
+    if (wave >= 5 && wave <= 20) {
+        if (rebirthCount >= 2) reduction += 5;
+        if (rebirthCount >= 3) reduction += 3;
+        if (rebirthCount >= 4) reduction += 3;
+        if (rebirthCount >= 5) reduction += 4;
+    } else if (wave > 20 && wave <= 50) {
+        if (rebirthCount >= 5) reduction += 4;
+    }
+
+    return Math.max(5, base - reduction);
+}
+
+function updateTraps(dt) {
+const laserTargetsThisTick = new Set();
+for (const slot of trapSlots) {
+if (!slot.occupied || slot.disabled > 0) continue;
+if (slot.cooldown > 0) slot.cooldown -= dt;
+if (slot.animTimer > 0) slot.animTimer -= dt;
+const type = slot.trapType;
+if (goblinSlayer && !goblinSlayer.dead) {
+if (Math.abs(slot.x - goblinSlayer.x) < 150) {
+let dmg = damageOf(type);
+let critLevel = rollCritLevel();
+dmg = Math.floor(dmg * CRIT_MULT[critLevel]);
+goblinSlayer.hp -= dmg;
+addParticle(goblinSlayer.x, H/2 + 40, '#ff0000', { life: 0.25 });
+if (critLevel > 0) addCritEffect(goblinSlayer.x, H/2 + 40, critLevel);
+}
+}
+if (type === 'arrow') {
+const arrowRange = hasArtifact('arrow_range') ? 750 : 250;
+if (slot.firingTimer > 0) {
+slot.firingTimer -= dt; slot.fireTick -= dt;
+if (slot.fireTick <= 0) {
+slot.fireTick = 0.25;
+projectiles.push({ x: slot.x, y: slot.y - 20, prevX: slot.x, prevY: slot.y - 20, vx: slot.fireDir * 480, vy: 0, damage: damageOf('arrow'), color: '#c0a060', life: 2, target: null, floor: slot.floor, fromTrap: true, slotX: slot.x });
+}
+} else {
+let triggered = false;
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+const dx = a.x - slot.x;
+if (Math.abs(dx) < arrowRange) { triggered = true; slot.fireDir = dx > 0 ? 1 : -1; break; }
+}
+if (triggered && slot.cooldown <= 0) { slot.firingTimer = 2.5; slot.fireTick = 0; slot.cooldown = 3; }
+}
+continue;
+}
+if (type === 'laser') {
+let fireRate = hasArtifact('laser_upgrade') ? (1 / 3.5) : (1 / 2.5);
+if (slot.cooldown > 0) continue;
+let bestTarget = null;
+let minDistToTreasure = Infinity;
+for (const a of adventurers) {
+if (a.dead || laserTargetsThisTick.has(a)) continue;
+const dist = Math.abs(a.x - (W - 80));
+if (dist < minDistToTreasure) {
+minDistToTreasure = dist;
+bestTarget = a;
+}
+}
+if (!bestTarget) {
+for (const a of adventurers) {
+if (a.dead) continue;
+const dist = Math.abs(a.x - (W - 80));
+if (dist < minDistToTreasure) {
+minDistToTreasure = dist;
+bestTarget = a;
+}
+}
+}
+if (bestTarget) {
+slot.cooldown = fireRate;
+slot.animTimer = 0.2;
+laserTargetsThisTick.add(bestTarget);
+let dmg = damageOf('laser');
+let critLevel = rollCritLevel();
+dmg = Math.floor(dmg * CRIT_MULT[critLevel]);
+applyDamageToAdventurer(bestTarget, dmg);
+if (critLevel > 0) addCritEffect(bestTarget.x, bestTarget.y, critLevel);
+addParticle(bestTarget.x, bestTarget.y, '#ff0055', { life: 0.2, size: 3 });
+effects.push({
+type: 'laser_beam',
+x1: slot.x, y1: slot.y - 10,
+x2: bestTarget.x, y2: bestTarget.y - 10,
+life: 0.15, maxLife: 0.15
+});
+}
+continue;
+}
+if (slot.cooldown > 0) continue;
+let triggered = false; let targets = [];
+if (type === 'spikes' || type === 'flame' || type === 'acid') {
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+if (Math.abs(slot.x - a.x) < 22 && Math.abs(slot.y - a.y) < 35) targets.push(a);
+}
+if (targets.length > 0) triggered = true;
+} else if (type === 'rune') {
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+const dx = a.x - slot.x, dy = a.y - slot.y;
+if (Math.sqrt(dx*dx + dy*dy) < 37) targets.push(a);
+}
+if (targets.length > 0) triggered = true;
+} else if (type === 'ice') {
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+const dx = a.x - slot.x, dy = a.y - slot.y;
+if (Math.sqrt(dx*dx + dy*dy) < 60) targets.push(a);
+}
+if (targets.length > 0) triggered = true;
+}
+if (!triggered) continue;
+let baseDmg = damageOf(type);
+let critLevel = rollCritLevel();
+let dmg = Math.floor(baseDmg * CRIT_MULT[critLevel]);
+if (type === 'spikes') {
+const mult = getSpikesMultiplier(slot);
+dmg = Math.floor(dmg * mult);
+slot.cooldown = 0.5; slot.animTimer = 0.5;
+for (const a of targets) { applyDamageToAdventurer(a, dmg); addParticle(a.x, a.y, '#c00', { life: 0.25 }); if (critLevel > 0) addCritEffect(a.x, a.y, critLevel); }
+} else if (type === 'flame') {
+slot.cooldown = 0.5; slot.animTimer = 0.5;
+for (const a of targets) {
+applyDamageToAdventurer(a, dmg);
+a.burning = Math.max(a.burning, 2);
+if (hasArtifact('flame_dot')) a.burningDmg = Math.max(a.burningDmg, damageOf('flame'));
+else a.burningDmg = Math.max(a.burningDmg, 15);
+addMagic(a.x, a.y, '#ff4500');
+if (critLevel > 0) addCritEffect(a.x, a.y, critLevel);
+}
+} else if (type === 'acid') {
+for (const a of targets) {
+if (a.poisoned <= 0) {
+applyDamageToAdventurer(a, dmg); a.poisoned = 5; a.poisonTick = 0;
+a.slowedAmount = Math.max(a.slowedAmount || 0, 0.35);
+a.slowed = Math.max(a.slowed, 5);
+if (!settings.hidePoisonEffect) addMagic(a.x, a.y, '#4f4');
+if (critLevel > 0) addCritEffect(a.x, a.y, critLevel);
+}
+}
+} else if (type === 'rune') {
+slot.cooldown = 4; slot.animTimer = 0.5;
+for (const a of targets) {
+applyDamageToAdventurer(a, dmg); a.hitFlash = 7;
+addMagic(a.x, a.y, '#b88aff');
+if (critLevel > 0) addCritEffect(a.x, a.y, critLevel);
+}
+effects.push({ type: 'rune_vertical', x: slot.x, y: slot.y, life: 0.5, maxLife: 0.5, width: 37 });
+for (let f = 0; f < state.floors; f++) {
+for (const a of adventurers) {
+if (a.dead || a.floor !== f) continue;
+if (Math.abs(a.x - slot.x) < 37 && !(targets.includes(a) && a.floor === slot.floor)) {
+applyDamageToAdventurer(a, dmg); a.hitFlash = 7;
+addMagic(a.x, a.y, '#b88aff');
+}
+}
+}
+if (hasArtifact('rune_cross')) {
+effects.push({ type: 'rune_horizontal', x: slot.x, y: slot.y, life: 0.5, maxLife: 0.5, width: 18 });
+const horizDmg = Math.floor(dmg * 0.5);
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+if (Math.abs(a.y - slot.y) < 18 && !targets.includes(a)) {
+applyDamageToAdventurer(a, horizDmg); a.hitFlash = 7;
+addMagic(a.x, a.y, '#b88aff');
+}
+}
+}
+} else if (type === 'ice') {
+slot.cooldown = 5; slot.animTimer = 0.33;
+if (!settings.hideIceEffect) {
+effects.push({ type: 'ice_nova', x: slot.x, y: slot.y, life: 0.6, maxLife: 0.6 });
+for (let i = 0; i < 14; i++) {
+const ang = Math.random() * Math.PI * 2;
+const sp = 120 + Math.random() * 180;
+addParticle(slot.x, slot.y, i % 2 ? '#aef4ff' : '#4af0ff', { vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp - 60, life: 0.5 + Math.random()*0.3, gravity: 200, size: 2 + Math.random()*2 });
+}
+}
+for (const a of adventurers) {
+if (a.dead || a.floor !== slot.floor) continue;
+const dx = a.x - slot.x, dy = a.y - slot.y; const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist < 240) {
+let iceDmg = dmg;
+if (hasArtifact('ice_bonus')) {
+if (a.frozen > 0) iceDmg *= 10;
+else if (a.slowed > 0) iceDmg *= 2;
+}
+if (dist < 60) {
+if (a.isDeath) {
+a.slowed = Math.max(a.slowed, 4); a.slowedAmount = Math.max(a.slowedAmount || 0, 0.4);
+applyDamageToAdventurer(a, iceDmg);
+} else {
+a.frozen = 4; applyDamageToAdventurer(a, iceDmg); if (!settings.hideIceEffect) addMagic(a.x, a.y, '#4af0ff');
+}
+}
+else { a.slowed = Math.max(a.slowed, 4); a.slowedAmount = Math.max(a.slowedAmount || 0, 0.4); applyDamageToAdventurer(a, Math.floor(iceDmg / 4)); if (!settings.hideIceEffect) addParticle(a.x, a.y, '#4af0ff', { life: 0.42 }); }
+if (critLevel > 0) addCritEffect(a.x, a.y, critLevel);
+}
+}
+}
+}
+}
+function startWave() {
+state.wave++;
+if (state.wave === 50 && !goblinSlayer && !goblinSlayerDefeated) {
+goblinSlayer = { x: -400, hp: 1e12, maxHp: 1e12, speed: 48 / 2.3, dead: false };
+adventurers.length = 0;
+showWaveAlert('⚔️ РАСХИТИТЕЛЬ ПРИБЛИЖАЕТСЯ! ⚔️', true);
+return;
+}
+const baseWaveSize = 3 + state.wave;
+const floorMult = 1 + (state.floors - 1) * 0.3;
+const spawnMult = 1 + state.upgSpawnLvl * 0.2;
+const waveSize = Math.floor(baseWaveSize * floorMult * spawnMult);
+if (goblinSlayerDefeated) {
+for (let i = 0; i < waveSize; i++) scheduleEvent(i * 0.5, () => spawnAdventurer(false));
+const bossLevel = state.wave;
+scheduleEvent(waveSize * 0.5, () => spawnAdventurer(true, bossLevel));
+postGameWaveCount++;
+if (postGameWaveCount % 5 === 0) scheduleEvent(1, () => spawnPostGameDeath());
+showWaveAlert(`⚔️ ВОЛНА ${state.wave}!`);
+return;
+}
+for (let i = 0; i < waveSize; i++) scheduleEvent(i * 0.5, () => spawnAdventurer(false));
+const bossLevel = state.wave;
+scheduleEvent(waveSize * 0.5, () => spawnAdventurer(true, bossLevel));
+showWaveAlert(`⚔️ ВОЛНА ${state.wave}!`);
+state.spawnMult *= 1.07;
+if (state.wave === 1) state.spawnMult *= 1.25;
+if (state.wave === 1 || state.wave === 2) state.spawnMult *= 1.20;
+if (state.wave === 3 || state.wave === 4) state.spawnMult *= 1.30;
+if (state.wave === 5 || state.wave === 6) state.spawnMult *= 1.25;
+if (state.wave === 7 || state.wave === 8) state.spawnMult *= 1.20;
+if (state.wave === 9 || state.wave === 10) state.spawnMult *= 1.10;
+if (state.wave >= 1 && state.wave <= 8) state.spawnMult *= 1.15;
+state.spawnMult *= 1.05;
+if (state.wave > 10) state.spawnMult *= 1.05;
+if (state.wave === 20 || state.wave === 25 || state.wave === 30 || state.wave === 35) spawnDeathWave(state.wave);
+const prevCount = classCountAtWave(state.wave - 1);
+const newCount = classCountAtWave(state.wave);
+if (newCount > prevCount && state.wave > 1) {
+const newClassKey = CLASS_UNLOCK_ORDER[newCount - 1];
+scheduleEvent(1.5, () => showWaveAlert(`⚔️ Новый класс: ${classes[newClassKey].name}!`, false));
+}
+const addFloorDelay = (waveSize + 1) * 0.5 + 1.0;
+if (state.wave % 2 === 0) {
+scheduleEvent(addFloorDelay, () => {
+state.floors++;
+protectNewFloor();
+state.spawnMult *= 1.1;
+initTorches(); addFloorSlots(); recalcPositions();
+showWaveAlert(`🏰 НОВЫЙ ЭТАЖ ${state.floors}!`, true);
+});
+}
+const nextWave = state.wave + 1;
+let fastNext = false;
+if (state.rebirthCount >= 1 && nextWave === 1) fastNext = true;
+if (state.rebirthCount >= 2 && nextWave === 2) fastNext = true;
+if (state.rebirthCount >= 3 && (nextWave === 3 || nextWave === 4)) fastNext = true;
+if (fastNext) state.waveTimer = getWaveInterval(nextWave, state.rebirthCount) - 5;
+}
+function performRebirth(skipConfirm) {
+const cost = rebirthCost();
+if (!devMode && state.kills < cost) return;
+if (!skipConfirm && !devMode && !confirm(`Переродиться за ${fmt(cost)} убийств?`)) return;
+const savedArtifacts = [...state.artifacts];
+state.rebirthCount++;
+state.dmgMult = 1; state.monsterDmgMult = 1;
+if (state.rebirthCount >= 3) state.gold = 15000;
+else if (state.rebirthCount >= 2) state.gold = 1225;
+else if (state.rebirthCount >= 1) state.gold = 225;
+else state.gold = 25;
+state.kills = 0; state.escaped = 0; state.floors = 1;
+state.goldMult = Math.pow(1.1, state.rebirthCount);
+state.spawnMult = 1.05 * (1 + state.rebirthCount * 0.05) * Math.pow(1.15, state.rebirthCount);
+state.critChance = 0.05; state.combo = 0; state.comboTimer = 0; state.comboMult = 1;
+state.wave = 0; state.waveTimer = 0; state.hpBonusMult = 1;
+goblinSlayerDefeated = false;
+goblinSlayer = null;
+postGameWaveCount = 0;
+playerDead = false;
+isPaused = false;
+gamePaused = false;
+timedEvents.length = 0;
+if (state.rebirthCount >= 1) state.waveTimer = getWaveInterval(1, state.rebirthCount) - 2;
+resetUpgrades();
+state.goldEarned = 0;
+state.goldSamples = [0];
+state.artifacts = savedArtifacts;
+for (const k in state.traps) state.traps[k] = 0;
+for (const k in state.monsters) state.monsters[k] = 0;
+adventurers.length = 0; monsterInstances.length = 0;
+particles.length = 0; projectiles.length = 0; effects.length = 0;
+timedEvents.length = 0; respawnAccum = 0; sampleAccum = 0;
+resetFloorProtection(); initTorches(); initSlots();
+showArtifactSelection();
+}
+function resetAfterDeath() {
+playerDead = false;
+isPaused = false;
+gamePaused = false;
+timedEvents.length = 0;
+const savedArtifacts = [...state.artifacts];
+const savedRebirths = state.rebirthCount;
+state.rebirthCount = savedRebirths; state.artifacts = savedArtifacts;
+if (state.rebirthCount >= 3) state.gold = 15000;
+else if (state.rebirthCount >= 2) state.gold = 1225;
+else if (state.rebirthCount >= 1) state.gold = 225;
+else state.gold = 25;
+state.kills = 0; state.escaped = 0; state.floors = 1;
+state.dmgMult = 1; state.monsterDmgMult = 1;
+state.goldMult = Math.pow(1.1, savedRebirths);
+state.spawnMult = 1.05 * (1 + savedRebirths * 0.05) * Math.pow(1.15, savedRebirths);
+state.critChance = 0.05; state.combo = 0; state.comboTimer = 0; state.comboMult = 1;
+state.wave = 0; state.waveTimer = 0; state.hpBonusMult = 1;
+state.goldEarned = 0;
+state.goldSamples = [0];
+goblinSlayerDefeated = false;
+goblinSlayer = null;
+postGameWaveCount = 0;
+if (state.rebirthCount >= 1) state.waveTimer = getWaveInterval(1, state.rebirthCount) - 2;
+resetUpgrades();
+for (const k in state.traps) state.traps[k] = 0;
+for (const k in state.monsters) state.monsters[k] = 0;
+adventurers.length = 0; monsterInstances.length = 0;
+particles.length = 0; projectiles.length = 0; effects.length = 0;
+timedEvents.length = 0; respawnAccum = 0; sampleAccum = 0;
+resetFloorProtection(); initTorches(); initSlots();
+}
+function update(dt) {
+if (playerDead) return;
+if (gamePaused || isPaused) return;
+for (let i = timedEvents.length - 1; i >= 0; i--) {
+timedEvents[i].delay -= dt;
+if (timedEvents[i].delay <= 0) {
+const action = timedEvents[i].action;
+timedEvents.splice(i, 1);
+action();
+}
+}
+for (let i = 0; i < floorProtection.length; i++) if (floorProtection[i] > 0) floorProtection[i] -= dt;
+const rCost = rebirthCost();
+const canRebirth = devMode || state.kills >= rCost;
+if (canRebirth && !rebirthAvailable) {
+rebirthAvailable = true;
+if (!fireworkPlayed) {
+fireworkPlayed = true;
+addFirework(W / 2, H / 2);
+scheduleEvent(0.2, () => addFirework(W / 3, H / 3));
+scheduleEvent(0.4, () => addFirework(W * 2 / 3, H / 3));
+}
+showRebirthAlert();
+} else if (!canRebirth) { rebirthAvailable = false; fireworkPlayed = false; }
+sampleAccum += dt;
+if (sampleAccum >= 1) {
+sampleAccum -= 1;
+state.goldSamples.push(state.goldEarned);
+if (state.goldSamples.length > 6) state.goldSamples.shift();
+}
+if (state.goldSamples.length >= 2) {
+const diff = state.goldSamples[state.goldSamples.length - 1] - state.goldSamples[0];
+state.gps = Math.floor(diff / (state.goldSamples.length - 1));
+}
+if (state.comboTimer > 0) { state.comboTimer -= dt; if (state.comboTimer <= 0) { state.combo = 0; state.comboMult = 1; } }
+for (const slot of trapSlots) if (slot.disabled > 0) slot.disabled -= dt;
+if (goblinSlayer && !goblinSlayer.dead) {
+goblinSlayer.x += goblinSlayer.speed * dt;
+goblinSlayer.frame += dt;
+for (const m of monsterInstances) {
+if (m.dead) continue;
+if (Math.abs(m.x - goblinSlayer.x) < 200) {
+m.hp = 0; m.dead = true; m.respawnTimer = 999999;
+}
+}
+if (goblinSlayer.hp <= 0) {
+goblinSlayer.dead = true;
+goblinSlayerDefeated = true;
+for (let i = 0; i < 10; i++) scheduleEvent(i * 0.3, () => addFirework(Math.random() * W, Math.random() * H));
+const a = document.createElement('div');
+a.className = 'wave-alert victory';
+a.textContent = '🏆 ПОБЕДА! ВЫ ПРОШЛИ ИГРУ! 🏆';
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 3500);
+document.getElementById('victoryModal').classList.add('active');
+isPaused = true;
+}
+if (goblinSlayer && goblinSlayer.x > W + 200 && !goblinSlayer.dead) {
+const a = document.createElement('div');
+a.className = 'wave-alert slain';
+a.textContent = '☠️ РАСХИТИТЕЛЬ ДОСТИГ СОКРОВИЩНИЦЫ!';
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 2500);
+goblinSlayer = null;
+playerDead = true;
+}
+}
+let waveInterval = getWaveInterval(state.wave, state.rebirthCount);
+state.waveTimer += dt;
+if (state.waveTimer >= waveInterval) { state.waveTimer = 0; startWave(); }
+if (!goblinSlayer || goblinSlayer.dead) {
+const baseRate = Math.max(1, 5 - state.floors * 0.2 - state.upgSpawnLvl * 0.3);
+const spawnRate = baseRate / 1.2;
+spawnTimer += dt;
+if (spawnTimer >= spawnRate / state.spawnMult) { spawnTimer = 0; spawnAdventurer(); }
+}
+respawnAccum += dt;
+if (respawnAccum >= 1) { respawnAccum -= 1; respawnMonsters(); }
+for (const m of monsterInstances) { if (m.dead) { m.respawnTimer -= dt; m.alpha = Math.max(0.15, m.alpha - dt * 1.2); } }
+updateTraps(dt);
+for (const a of adventurers) if (!a.dead) a.speedBuff = 0;
+for (const a of adventurers) {
+if (a.dead || a.class !== 'bard' || settings.hideBardEffect) continue;
+for (const other of adventurers) {
+if (other.dead || other === a || other.floor !== a.floor) continue;
+if (other.isDeath) continue;
+if (Math.abs(other.x - a.x) < 100) other.speedBuff = Math.max(other.speedBuff || 0, 0.3);
+}
+}
+for (const a of adventurers) {
+if (a.dead) { a.deathTimer += dt; continue; }
+if (a.class === 'berserker') {
+const rage = 1 - Math.max(0, a.hp / a.maxHp);
+a.currentSpeed = a.speed * (1 + rage * 1.5);
+a.currentAtk = a.atk * (1 + rage * 2);
+} else { a.currentSpeed = a.speed; a.currentAtk = a.atk; }
+const immuneToEffects = (goblinSlayer && !goblinSlayer.dead);
+if (a.poisoned > 0 && !immuneToEffects) {
+a.poisoned -= dt; a.poisonTick += dt;
+if (a.poisonTick >= 1) {
+a.poisonTick = 0;
+let poisonDmg = damageOf('acid');
+if (hasArtifact('acid_percent')) {
+let acidBonus = a.isDeath ? 0.001 : a.isBoss ? 0.01 : 0.02;
+poisonDmg += Math.floor(a.maxHp * acidBonus);
+}
+a.hp -= poisonDmg;
+if (!settings.hidePoisonEffect) addParticle(a.x, a.y, '#4f4', { life: 0.33 });
+}
+}
+if (a.burning > 0 && !immuneToEffects) {
+a.burning -= dt; a.burnTick = (a.burnTick || 0) + dt;
+if (a.burnTick >= 0.2) { a.burnTick -= 0.2; a.hp -= a.burningDmg || 15; addParticle(a.x, a.y, '#ff4500', { life: 0.33 }); }
+}
+if (a.frozen > 0 && !immuneToEffects) a.frozen -= dt;
+if (a.class === 'mage' && !a.fighting && a.frozen <= 0 && !immuneToEffects) {
+a.teleportCooldown -= dt;
+if (a.teleportCooldown <= 0 && Math.random() < 0.01) { a.x += 100; a.teleportCooldown = 2.25; addMagic(a.x, a.y, '#b88aff'); }
+}
+if (a.class === 'cleric' && !immuneToEffects) {
+a.healCooldown -= dt;
+if (a.healCooldown <= 0) {
+let healed = false;
+for (const other of adventurers) {
+if (other.dead || other === a) continue;
+if (other.floor === a.floor && Math.abs(other.x - a.x) < 100) { other.hp = Math.min(other.maxHp, other.hp + other.maxHp * 0.2); healed = true; }
+}
+if (healed) effects.push({ type: 'cross', x: a.x, y: a.y - 40, life: 0.5, maxLife: 0.5 });
+a.healCooldown = Math.random() * 6.3 + 0.7;
+}
+}
+if (a.class === 'rogue') a.disableCooldown -= dt;
+if (a.class === 'archer') a.rangedAtkCooldown -= dt;
+let nearestMonster = null, nearestDist = a.class === 'archer' ? 300 : 40;
+for (const m of monsterInstances) {
+if (m.dead || m.floor !== a.floor) continue;
+const dist = Math.abs(m.x - a.x);
+if (dist < nearestDist) { nearestDist = dist; nearestMonster = m; }
+}
+if (a.class === 'rogue' && !a.usedDisable && a.disableCooldown <= 0 && a.frozen <= 0 && !immuneToEffects) {
+for (const slot of getActiveTraps()) {
+if (slot.floor === a.floor && Math.abs(slot.x - a.x) < 30) { slot.disabled = 5; a.usedDisable = true; addParticle(slot.x, slot.y, '#888', { life: 0.5 }); break; }
+}
+}
+if (a.class === 'archer' && nearestMonster && a.rangedAtkCooldown <= 0 && nearestDist < 300 && nearestDist > 40 && a.frozen <= 0) {
+const dx = nearestMonster.x - a.x; const dy = nearestMonster.y - a.y;
+const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist > 0) {
+projectiles.push({ x: a.x, y: a.y - 10, prevX: a.x, prevY: a.y - 10, vx: (dx / dist) * 360, vy: (dy / dist) * 360, damage: a.currentAtk, color: '#2a6a2a', life: 2, target: nearestMonster, floor: a.floor, fromArcher: true });
+}
+a.rangedAtkCooldown = 1;
+}
+if (nearestMonster && !a.fighting && nearestDist < 40 && a.frozen <= 0 && !immuneToEffects) { a.fighting = nearestMonster; nearestMonster.fighting = a; }
+if (a.fighting) {
+if (a.fighting.dead || a.fighting.floor !== a.floor || Math.abs(a.fighting.x - a.x) > 60) { a.fighting = null; }
+else {
+a.atkCooldown -= dt;
+if (a.atkCooldown <= 0) {
+a.atkCooldown = a.atkSpeed || 0.67; a.fighting.hp -= a.currentAtk;
+addParticle(a.fighting.x, a.fighting.y - 10, '#ffaa00', { life: 0.25, size: 2 });
+if (a.fighting.hp <= 0) { a.fighting.dead = true; a.fighting.respawnTimer = 10; a.fighting.fighting = null; a.fighting = null; }
+}
+}
+}
+if (a.hp <= 0) {
+a.dead = true;
+if (!a.isDeath) {
+state.kills++; state.combo++; state.comboTimer = 4;
+state.comboMult = calcComboMult(state.combo);
+state.hpBonusMult += 0.03; state.hpBonusMult *= 1.0002;
+const hpBonusPct = Math.floor((state.hpBonusMult - 1) * 100);
+const baseReward = 15 + Math.floor(hpBonusPct / 10);
+const bossMult = a.isBoss ? 5 : 1;
+const reward = Math.floor(baseReward * bossMult * state.goldMult * state.comboMult);
+state.gold += reward;
+state.goldEarned += reward;
+addBlood(a.x, a.y);
+effects.push({ type: 'loot', x: a.x, y: a.y - 20, life: 1, maxLife: 1, amount: reward });
+if (!settings.hideDeathEffect) addParticle(a.x, a.y - 50, '#ffd700', { life: 0.67, vy: -120, size: 4 });
+}
+continue;
+}
+if (a.frozen > 0) continue;
+if (a.fighting) continue;
+let speed = a.currentSpeed;
+if (a.speedBuff > 0 && !immuneToEffects) speed *= (1 + a.speedBuff);
+if (a.slowed > 0 && !immuneToEffects) { speed *= (1 - (a.slowedAmount || 0.35)); a.slowed -= dt; }
+a.x += speed * dt;
+if (a.x > W - 80 && !a.dead) {
+if (a.isDeath) {
+playerDead = true;
+a.dead = true;
+continue;
+}
+const lootRequest = Math.floor(10 * state.hpBonusMult * Math.pow(1.5, state.floors - 1));
+const actualLoot = Math.max(0, Math.min(lootRequest, state.gold));
+if (actualLoot > 0) { state.gold -= actualLoot; effects.push({ type: 'loot', x: W - 80, y: a.y, life: 1, maxLife: 1, amount: -actualLoot }); }
+const oldBonusPct = (state.hpBonusMult - 1) * 100;
+const reductionPct = state.floors * 10;
+const newBonusPct = Math.max(0, oldBonusPct - reductionPct);
+const actualReduction = oldBonusPct - newBonusPct;
+state.hpBonusMult = 1 + newBonusPct / 100;
+if (actualReduction > 0) showWeakenEffect(actualReduction);
+a.dead = true; a.deathTimer = 1.67;
+state.escaped++; state.combo = 0; state.comboMult = 1; state.comboTimer = 0;
+if (state.gold < 0) state.gold = 0;
+}
+}
+for (const m of monsterInstances) {
+if (m.dead) continue;
+if (m.hp <= 0) { m.dead = true; m.respawnTimer = 10; m.fighting = null; continue; }
+if (m.type === 'goblin' && hasArtifact('goblin_regen')) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * 0.05 * dt);
+if (m.type === 'demon' && hasArtifact('demon_teleport')) {
+let heroesNearTreasure = false, treasureFloor = -1;
+for (let f = 0; f < state.floors; f++) {
+for (const a of adventurers) {
+if (a.dead || a.floor !== f) continue;
+if (a.x > W - 150) { heroesNearTreasure = true; treasureFloor = f; break; }
+}
+if (heroesNearTreasure) break;
+}
+if (heroesNearTreasure && m.floor !== treasureFloor) { m.floor = treasureFloor; m.x = W - 100; m.y = getMonsterY('demon', treasureFloor); }
+}
+if (goblinSlayer && !goblinSlayer.dead && Math.abs(m.x - goblinSlayer.x) < 200) {
+m.atkCooldown -= dt;
+if (m.atkCooldown <= 0) {
+m.atkCooldown = 0.83;
+let dmg = monsterDamageOf(m.type);
+goblinSlayer.hp -= dmg;
+addParticle(goblinSlayer.x, H/2 + 40, '#ff0000', { life: 0.25 });
+}
+continue;
+}
+if (m.type === 'demon') {
+let target = null, minDist = 300;
+for (const a of adventurers) {
+if (a.dead || a.floor !== m.floor) continue;
+const dist = Math.abs(a.x - m.x);
+if (dist < minDist) { minDist = dist; target = a; }
+}
+if (target && minDist < 40) {
+m.fighting = target; m.atkCooldown -= dt;
+if (m.atkCooldown <= 0) {
+m.atkCooldown = 0.83;
+let dmg = monsterDamageOf(m.type);
+applyDamageToAdventurer(target, dmg);
+addParticle(target.x, target.y - 10, '#ff0000', { life: 0.25, size: 2 });
+}
+} else { m.fighting = null; m.x -= 36 * dt; }
+continue;
+}
+if (m.type === 'dragon') {
+if (hasArtifact('dragon_knockback')) {
+let heroNear = false;
+for (const a of adventurers) {
+if (a.dead || a.floor !== m.floor) continue;
+if (Math.abs(a.x - m.x) < 200) { heroNear = true; break; }
+}
+if (heroNear) { m.x += 18 * dt; if (m.x > W - 100) m.x = W - 100; }
+else if (Math.abs(m.x - m.homeX) > 5) m.x += (m.homeX - m.x) * 0.02;
+}
+let targets = [];
+for (const a of adventurers) {
+if (a.dead || a.floor !== m.floor) continue;
+if (Math.abs(a.x - m.x) < 200) targets.push(a);
+}
+if (targets.length > 0) {
+m.atkCooldown -= dt;
+if (m.atkCooldown <= 0) {
+m.atkCooldown = 2;
+for (const t of targets) { let dmg = monsterDamageOf(m.type); applyDamageToAdventurer(t, dmg); addMagic(t.x, t.y, '#ff4500'); }
+effects.push({ type: 'dragonfire', x: m.x, y: m.y, life: 0.5, maxLife: 0.5 });
+}
+}
+continue;
+}
+let nearestAdv = null;
+let skeletonRange = hasArtifact('skeleton_buff') ? 400 : 200;
+let nearestDist = m.ranged ? skeletonRange : 40;
+for (const a of adventurers) {
+if (a.dead || a.floor !== m.floor) continue;
+const dist = Math.abs(a.x - m.x);
+if (dist < nearestDist) { nearestDist = dist; nearestAdv = a; }
+}
+if (nearestAdv) {
+if (m.ranged && nearestDist < skeletonRange) {
+m.atkCooldown -= dt;
+if (m.atkCooldown <= 0) {
+m.atkCooldown = 1.5;
+const pierce = (m.type === 'skeleton' && hasArtifact('skeleton_buff')) ? 2 : 0;
+const dx = nearestAdv.x - m.x; const dy = nearestAdv.y - m.y;
+const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist > 0) {
+projectiles.push({ x: m.x, y: m.y - 15, prevX: m.x, prevY: m.y - 15, vx: (dx / dist) * 300, vy: (dy / dist) * 300, damage: monsterDamageOf(m.type), color: m.type === 'skeleton' ? '#e0d8c0' : '#ff4500', life: 2, target: nearestAdv, floor: m.floor, pierce, hitList: [] });
+}
+}
+} else if (!m.ranged && nearestDist < 40) {
+m.atkCooldown -= dt;
+if (m.atkCooldown <= 0) {
+m.atkCooldown = 0.83;
+let dmg = monsterDamageOf(m.type);
+if (m.type === 'goblin' && hasArtifact('goblin_regen')) {
+const count = monsterInstances.filter(mon => mon.type === 'goblin' && !mon.dead && mon.floor === m.floor).length;
+dmg *= count;
+}
+applyDamageToAdventurer(nearestAdv, dmg);
+addParticle(nearestAdv.x, nearestAdv.y - 10, '#ff0000', { life: 0.25, size: 2 });
+}
+}
+}
+}
+for (let i = projectiles.length - 1; i >= 0; i--) {
+const p = projectiles[i];
+p.prevX = p.x; p.prevY = p.y;
+p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+let removed = false;
+if (p.target && !p.target.dead) {
+const dist = Math.sqrt((p.x - p.target.x) ** 2 + (p.y - p.target.y) ** 2);
+if (dist < 25) {
+p.target.hp -= p.damage; p.target.hitFlash = 5;
+addParticle(p.target.x, p.target.y - 10, p.color, { life: 0.25, size: 2 });
+if (p.pierce > 0) {
+p.pierce--;
+p.hitList = p.hitList || [];
+p.hitList.push(p.target);
+let nextTarget = null, minDist = 300;
+for (const a of adventurers) {
+if (a.dead || p.hitList.includes(a) || a.floor !== p.floor) continue;
+const d = Math.sqrt((p.x - a.x)**2 + (p.y - a.y)**2);
+if (d < minDist) { minDist = d; nextTarget = a; }
+}
+if (nextTarget) {
+const dx = nextTarget.x - p.x; const dy = nextTarget.y - p.y; const d = Math.sqrt(dx*dx + dy*dy);
+if (d > 0) { p.vx = (dx/d) * 300; p.vy = (dy/d) * 300; }
+p.target = nextTarget;
+} else { projectiles.splice(i, 1); removed = true; }
+} else { projectiles.splice(i, 1); removed = true; }
+}
+}
+if (!removed && !p.target) {
+for (const a of adventurers) {
+if (a.dead || a.floor !== p.floor) continue;
+const heroLeft = a.x - 12, heroRight = a.x + 12;
+const heroTop = a.y - 25, heroBottom = a.y + 10;
+let crossedX = p.vx > 0 ? (p.prevX <= heroRight && p.x >= heroLeft) : (p.prevX >= heroLeft && p.x <= heroRight);
+const crossedY = (Math.min(p.prevY, p.y) <= heroBottom && Math.max(p.prevY, p.y) >= heroTop);
+if (crossedX && crossedY) {
+let dmg = p.damage;
+if (hasArtifact('arrow_range') && p.fromTrap) { const distance = Math.abs(p.x - p.slotX); dmg = Math.floor(dmg * (1 + Math.min(5, distance / 150))); }
+applyDamageToAdventurer(a, dmg);
+addParticle(a.x, a.y - 10, p.color, { life: 0.25, size: 2 });
+projectiles.splice(i, 1); removed = true; break;
+}
+}
+}
+if (!removed && (p.life <= 0 || p.x < -50 || p.x > W + 50)) projectiles.splice(i, 1);
+}
+for (let i = effects.length - 1; i >= 0; i--) { effects[i].life -= dt; if (effects[i].life <= 0) effects.splice(i, 1); }
+for (let i = adventurers.length - 1; i >= 0; i--) if (adventurers[i].dead && adventurers[i].deathTimer > 1.33) adventurers.splice(i, 1);
+for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.gravity * dt; p.life -= dt; if (p.life <= 0) particles.splice(i, 1); }
+}
+function showWaveAlert(text, big = false) {
+const a = document.createElement('div');
+a.className = 'wave-alert' + (big ? ' big' : '');
+a.textContent = text;
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 1500);
+}
+function showInfoMessage(text) {
+const a = document.createElement('div');
+a.className = 'wave-alert';
+a.style.color = '#ffd700';
+a.style.textShadow = '0 0 20px #ffd700';
+a.style.fontSize = '22px';
+a.textContent = text;
+document.getElementById('game').appendChild(a);
+setTimeout(() => a.remove(), 1500);
+}
+function showFloorHint() { showInfoMessage('Выберите этаж, кликнув по нему'); }
+function render() {
+ctx.clearRect(0, 0, canvasW, canvasH);
+ctx.fillStyle = '#0a0612';
+ctx.fillRect(0, 0, canvasW, canvasH);
+ctx.save();
+ctx.translate(offsetX, offsetY);
+ctx.scale(scale, scale);
+ctx.beginPath();
+ctx.rect(0, 0, W, H);
+ctx.clip();
+drawBackground(); drawFloors();
+for (const t of torches) drawTorch(t);
+drawFloorTreasures();
+for (const slot of trapSlots) if (slot.occupied) drawTrap(slot);
+for (const m of monsterInstances) drawMonsterInstance(m);
+for (const a of adventurers) drawAdventurer(a);
+drawProjectiles(); drawEffects(); drawParticles();
+drawGoblinSlayer();
+drawPendingPreview();
+if (playerDead) drawPlayerDead();
+else if (isPaused) drawPaused();
+ctx.restore();
+}
+function getTrapName(type) {
+const names = { spikes: 'Шипы', acid: 'Кислота', arrow: 'Стрелы', rune: 'Руна', flame: 'Пламя', ice: 'Лёд', laser: 'Лазер' };
+return names[type] || type;
+}
+function getMonsterName(type) {
+const names = { skeleton: 'Скелет', goblin: 'Гоблин', demon: 'Демон', dragon: 'Дракон' };
+return names[type] || type;
+}
+function buildSpecButtons() {
+const specDiv = document.getElementById('specializations');
+const specTop = document.getElementById('specializationTop');
+specDiv.innerHTML = '';
+specTop.innerHTML = '';
+specRefs = [];
+let hasAny = false;
+let topShown = false;
+const makeHeader = () => {
+const header = document.createElement('h3');
+header.textContent = '🎯 СПЕЦИАЛИЗАЦИИ (×2 к урону)';
+header.style.color = '#ffd700';
+header.style.fontSize = '12px';
+header.style.marginTop = '10px';
+header.style.marginBottom = '6px';
+specDiv.appendChild(header);
+};
+const buildOne = (type, isMonster) => {
+const upgrade = isMonster ? state.monsterUpgrades[type] : state.trapUpgrades[type];
+const count = isMonster ? state.monsters[type] : state.traps[type];
+const maxLvl = maxSpecLevel(count);
+const canUpgrade = upgrade.level < maxLvl;
+if (!(count >= 5 || upgrade.level > 0)) return;
+const cost = specCost(type, isMonster);
+const nameGetter = isMonster ? getMonsterName : getTrapName;
+const unit = isMonster ? 'монстров' : 'ловушек';
+const btn = document.createElement('button');
+btn.className = 'btn spec-btn';
+const nextMult = upgrade.mult * 2;
+let statusText = canUpgrade
+? `Доступно: Lv.${upgrade.level + 1}`
+: `<span class="locked">Нужно ещё ${(upgrade.level + 1) * 5 - count} ${unit} до Lv.${upgrade.level + 1}</span>`;
+btn.innerHTML = `
+<span class="name">🎯 ${nameGetter(type)} Lv.${upgrade.level}</span>
+<span class="cost">💰 ${fmt(cost)}</span>
+<div class="desc">×${upgrade.mult.toFixed(2)} → ×${nextMult.toFixed(2)} к урону | ${statusText}</div>
+`;
+btn.onclick = () => {
+if (btn.disabled) return;
+if (!devMode) state.gold -= cost;
+upgrade.level++;
+upgrade.mult *= 2;
+lastSpecState = '';
+};
+if (!topShown && canUpgrade) {
+specTop.appendChild(btn);
+topShown = true;
+} else {
+if (!hasAny) { makeHeader(); hasAny = true; }
+specDiv.appendChild(btn);
+}
+specRefs.push({ btn, cost, canUpgrade });
+};
+for (const type in state.trapUpgrades) buildOne(type, false);
+for (const type in state.monsterUpgrades) buildOne(type, true);
+}
+function updateSpecializationsUI() {
+let structState = '';
+for (const type in state.trapUpgrades) {
+const u = state.trapUpgrades[type];
+structState += `T${type}:${u.level}:${maxSpecLevel(state.traps[type])}:${state.traps[type]}|`;
+}
+for (const type in state.monsterUpgrades) {
+const u = state.monsterUpgrades[type];
+structState += `M${type}:${u.level}:${maxSpecLevel(state.monsters[type])}:${state.monsters[type]}|`;
+}
+if (structState !== lastSpecState) { lastSpecState = structState; buildSpecButtons(); }
+for (const ref of specRefs) {
+const canAfford = devMode || state.gold >= ref.cost;
+ref.btn.disabled = !ref.canUpgrade || !canAfford;
+ref.btn.classList.toggle('available-glow', ref.canUpgrade);
+}
+}
+function updateSpeedButtons() {
+document.querySelectorAll('.ctrl-btn[data-speed]').forEach(b => {
+b.classList.toggle('active-speed', parseInt(b.dataset.speed) === gameSpeed);
+});
+}
+function placeTrapAt(type, x, y) {
+let floor = -1;
+for (let f = 0; f < state.floors; f++) {
+const fy = floorY(f); const fh = floorH();
+if (y >= fy && y < fy + fh) { floor = f; break; }
+}
+if (floor === -1) { showInfoMessage('Кликните на этаж'); return false; }
+const countOnFloor = trapSlots.filter(s => s.floor === floor && s.occupied).length;
+if (countOnFloor >= 12) { showInfoMessage('Максимум 12 ловушек на этаж'); return false; }
+for (const s of trapSlots) {
+if (s.floor === floor && s.occupied) {
+const dist = Math.sqrt((s.x - x)**2 + (s.y - y)**2);
+if (dist < 30) { showInfoMessage('Ловушки не должны касаться друг друга'); return false; }
+}
+}
+const trapY = floorY(floor) + floorH() - 25;
+trapSlots.push({ floor: floor, x: x, y: trapY, occupied: true, trapType: type, id: trapSlots.length, disabled: 0, cooldown: 0, animTimer: 0, firingTimer: 0, fireTick: 0, fireDir: 1 });
+return true;
+}
+function placeMonsterAt(type, x, y) {
+let floor = -1;
+for (let f = 0; f < state.floors; f++) {
+const fy = floorY(f); const fh = floorH();
+if (y >= fy && y < fy + fh) { floor = f; break; }
+}
+if (floor === -1) { showInfoMessage('Кликните на этаж'); return false; }
+const monY = getMonsterY(type, floor);
+monsterInstances.push({ x: x, y: monY, homeX: x, floor: floor, type: type, hp: monsterHP(type), maxHp: monsterHP(type), frame: Math.random() * 100, id: Math.random(), dead: false, respawnTimer: 0, alpha: 1, fighting: null, atkCooldown: 0, ranged: type === 'skeleton' || type === 'dragon' });
+return true;
+}
+function updateUI() {
+document.getElementById('gold').textContent = devMode ? '∞' : fmt(state.gold);
+document.getElementById('kills').textContent = fmt(state.kills);
+document.getElementById('escaped').textContent = fmt(state.escaped);
+document.getElementById('floors').textContent = state.floors;
+document.getElementById('wave').textContent = state.wave;
+document.getElementById('rebirths').textContent = state.rebirthCount;
+document.getElementById('gps').textContent = fmt(state.gps);
+document.getElementById('trapMult').textContent = 'x' + (state.dmgMult * Math.pow(1.25, state.rebirthCount)).toFixed(2);
+document.getElementById('monMult').textContent = 'x' + (state.monsterDmgMult * Math.pow(1.25, state.rebirthCount)).toFixed(2);
+document.getElementById('goldMultStat').textContent = 'x' + (state.goldMult * state.comboMult).toFixed(2);
+const bonusPct = Math.floor((state.hpBonusMult - 1) * 100);
+document.getElementById('hpBonus').textContent = bonusPct;
+document.getElementById('combo').textContent = state.comboMult.toFixed(3);
+document.getElementById('comboCount').textContent = state.combo;
+document.getElementById('devIndicator').classList.toggle('active', devMode);
+document.getElementById('deleteIndicator').classList.toggle('active', deleteMode);
+document.getElementById('toggleHint').classList.toggle('visible', state.mode === 'targeted' && !manualTrapMode && !manualMonsterMode);
+document.getElementById('manualIndicator').classList.toggle('active', pendingShopItem !== null);
+document.getElementById('manualTrapContainer').style.display = (state.mode === 'targeted' && hasArtifact('manual_traps')) ? 'flex' : 'none';
+document.getElementById('manualMonsterContainer').style.display = (state.mode === 'targeted' && hasArtifact('manual_monsters')) ? 'flex' : 'none';
+const speedInd = document.getElementById('speedIndicator');
+if (gameSpeed > 1) { speedInd.classList.add('active'); speedInd.textContent = '⏩ x' + gameSpeed; }
+else speedInd.classList.remove('active');
+document.getElementById('pauseBtn').classList.toggle('paused-active', isPaused);
+document.getElementById('nextWave').style.display = devMode ? 'block' : 'none';
+document.getElementById('addFloor').style.display = devMode ? 'block' : 'none';
+const artList = document.getElementById('artifactsList');
+const artItems = document.getElementById('artifactsItems');
+if (state.artifacts.length > 0) {
+artList.style.display = 'block';
+artItems.innerHTML = state.artifacts.map(id => { const art = ARTIFACT_TREE[id]; return art ? `<div class="art-item">${art.name}</div>` : ''; }).join('');
+} else { artList.style.display = 'none'; }
+const fc = floorCost();
+document.getElementById('cost-floor').textContent = devMode ? 'FREE' : '💰 ' + fmt(fc);
+document.getElementById('count-floor').textContent = state.floors;
+document.getElementById('addFloor').disabled = !devMode && state.gold < fc;
+for (const type in state.traps) {
+const cost = costOf(type);
+const btn = document.querySelector(`.trap-btn[data-type="${type}"]`);
+document.getElementById('cost-' + type).textContent = devMode ? 'FREE' : '💰 ' + fmt(cost);
+document.getElementById('dmg-' + type).textContent = fmt(damageOf(type));
+document.getElementById('count-' + type).textContent = state.traps[type];
+const isPendingItem = pendingShopItem && pendingShopItem.kind === 'trap' && pendingShopItem.type === type;
+const isLockedByPending = pendingShopItem && !isPendingItem;
+btn.disabled = (!devMode && state.gold < cost) || isLockedByPending;
+btn.classList.toggle('pending-purchase', isPendingItem);
+}
+for (const type in state.monsters) {
+const cost = costOf(type);
+const btn = document.querySelector(`.mon-btn[data-type="${type}"]`);
+document.getElementById('cost-' + type).textContent = devMode ? 'FREE' : '💰 ' + fmt(cost);
+document.getElementById('dmg-' + type).textContent = fmt(monsterDamageOf(type));
+document.getElementById('hp-' + type).textContent = fmt(monsterHP(type));
+document.getElementById('count-' + type).textContent = state.monsters[type];
+const isPendingItem = pendingShopItem && pendingShopItem.kind === 'monster' && pendingShopItem.type === type;
+const isLockedByPending = pendingShopItem && !isPendingItem;
+btn.disabled = (!devMode && state.gold < cost) || isLockedByPending;
+btn.classList.toggle('pending-purchase', isPendingItem);
+}
+const dmgCost = Math.floor(100 * Math.pow(5, state.upgDmgLvl));
+const monDmgCost = Math.floor(150 * Math.pow(5, state.upgMonDmgLvl));
+const goldCost = Math.floor(75 * Math.pow(11, state.upgGoldLvl));
+const critCost = Math.floor(50 * Math.pow(1.5, state.upgCritLvl));
+const spawnCost = Math.floor(40 * Math.pow(1.5, state.upgSpawnLvl));
+document.getElementById('cost-upgDmg').textContent = devMode ? 'FREE' : '💰 ' + fmt(dmgCost);
+document.getElementById('count-upgDmg').textContent = state.upgDmgLvl;
+document.getElementById('upgDmg').disabled = !devMode && state.gold < dmgCost;
+document.getElementById('cost-upgMonDmg').textContent = devMode ? 'FREE' : '💰 ' + fmt(monDmgCost);
+document.getElementById('count-upgMonDmg').textContent = state.upgMonDmgLvl;
+document.getElementById('upgMonDmg').disabled = !devMode && state.gold < monDmgCost;
+document.getElementById('cost-upgGold').textContent = devMode ? 'FREE' : '💰 ' + fmt(goldCost);
+document.getElementById('count-upgGold').textContent = state.upgGoldLvl;
+document.getElementById('upgGold').disabled = !devMode && state.gold < goldCost;
+document.getElementById('cost-upgCrit').textContent = devMode ? 'FREE' : '💰 ' + fmt(critCost);
+document.getElementById('count-upgCrit').textContent = state.upgCritLvl;
+document.getElementById('upgCrit').disabled = !devMode && state.gold < critCost;
+document.getElementById('cost-upgSpawn').textContent = devMode ? 'FREE' : '💰 ' + fmt(spawnCost);
+document.getElementById('count-upgSpawn').textContent = state.upgSpawnLvl;
+document.getElementById('upgSpawn').disabled = !devMode && state.gold < spawnCost;
+const rCost = rebirthCost();
+const canRebirth = devMode || state.kills >= rCost;
+document.getElementById('rebirth').disabled = !canRebirth;
+const rebirthBtn = document.getElementById('rebirth');
+if (canRebirth) rebirthBtn.classList.add('ready');
+else rebirthBtn.classList.remove('ready');
+const progress = Math.min(1, state.kills / rCost);
+rebirthBtn.style.background = `linear-gradient(to right, rgba(255,74,74,0.45) 0%, rgba(255,74,74,0.45) ${progress*100}%, #2a0f0f ${progress*100}%, #2a0f0f 100%)`;
+document.getElementById('rebirthInfo').textContent = canRebirth
+? `Готово! +25% к урону. ${devMode ? '(DEV)' : 'Стоимость: ' + fmt(rCost) + ' убийств.'}`
+: `Требуется ${fmt(rCost)} убийств (${fmt(state.kills)}/${fmt(rCost)}). +25% к урону.`;
+updateSpecializationsUI();
+}
+function resetUpgrades() {
+state.upgDmgLvl = 0; state.upgMonDmgLvl = 0; state.upgGoldLvl = 0; state.upgCritLvl = 0; state.upgSpawnLvl = 0;
+for (const type in state.trapUpgrades) state.trapUpgrades[type] = { level: 0, mult: 1 };
+for (const type in state.monsterUpgrades) state.monsterUpgrades[type] = { level: 0, mult: 1 };
+lastSpecState = ''; specRefs = [];
+}
+function tryDeleteAtPoint(px, py) {
+for (const m of monsterInstances) {
+if (m.dead) continue;
+if (Math.abs(m.x - px) < 30 && Math.abs(m.y - py) < 50) {
+const cost = costOf(m.type); const refund = Math.floor(cost * 0.17);
+state.gold += refund;
+state.monsters[m.type] = Math.max(0, state.monsters[m.type] - 1);
+monsterInstances.splice(monsterInstances.indexOf(m), 1);
+effects.push({ type: 'loot', x: px, y: py - 20, life: 1, maxLife: 1, amount: refund });
+addMagic(px, py, '#ff4a4a'); return true;
+}
+}
+for (const slot of trapSlots) {
+if (!slot.occupied) continue;
+if (Math.abs(slot.x - px) < 25 && Math.abs(slot.y - py) < 25) {
+const type = slot.trapType; const cost = costOf(type); const refund = Math.floor(cost * 0.17);
+state.gold += refund;
+state.traps[type] = Math.max(0, state.traps[type] - 1);
+slot.occupied = false; slot.trapType = null;
+effects.push({ type: 'loot', x: px, y: py - 20, life: 1, maxLife: 1, amount: refund });
+addMagic(px, py, '#ff4a4a'); return true;
+}
+}
+return false;
+}
+cv.addEventListener('mousemove', (e) => {
+const coords = getLogicalCoords(e);
+cursorX = coords.x; cursorY = coords.y; cursorOnCanvas = true;
+});
+cv.addEventListener('mouseleave', () => { cursorOnCanvas = false; });
+cv.addEventListener('click', (e) => {
+if (playerDead) { resetAfterDeath(); return; }
+const coords = getLogicalCoords(e);
+const clickX = coords.x; const clickY = coords.y;
+if (deleteMode) { tryDeleteAtPoint(clickX, clickY); return; }
+if (pendingShopItem) {
+let placed = false;
+if (pendingShopItem.kind === 'trap') placed = placeTrapAt(pendingShopItem.type, clickX, clickY);
+else placed = placeMonsterAt(pendingShopItem.type, clickX, clickY);
+if (placed) pendingShopItem = null;
+return;
+}
+if (state.mode !== 'targeted') return;
+for (let i = 0; i < state.floors; i++) { const y = floorY(i); const h = floorH(); if (clickY >= y && clickY < y + h) { state.targetFloor = i; break; } }
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        isPaused = !isPaused;
+        document.getElementById('pauseBtn').textContent = isPaused ? '▶️' : '⏸️';
+        document.getElementById('pauseBtn').classList.toggle('paused-active', isPaused);
+    } else if (e.code === 'Digit1' || e.code === 'Numpad1') {
+        gameSpeed = 1;
+        updateSpeedButtons();
+    } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
+        gameSpeed = 2;
+        updateSpeedButtons();
+    }
+});
+
+document.getElementById('modeToggle').addEventListener('click', function() {
+this.classList.toggle('active');
+state.mode = this.classList.contains('active') ? 'uniform' : 'targeted';
+if (state.mode === 'uniform') {
+state.targetFloor = -1;
+manualTrapMode = false; manualMonsterMode = false;
+document.getElementById('manualTrapToggle').classList.remove('active');
+document.getElementById('manualMonsterToggle').classList.remove('active');
+if (pendingShopItem) {
+if (pendingShopItem.kind === 'trap') {
+const targetFloor = findBestFloorForTrap();
+const freeSlot = trapSlots.find(s => !s.occupied && s.floor === targetFloor);
+if (freeSlot) { freeSlot.occupied = true; freeSlot.trapType = pendingShopItem.type; freeSlot.y = getTrapY(pendingShopItem.type, freeSlot.floor); }
+} else { spawnMonsterInstance(pendingShopItem.type); }
+pendingShopItem = null;
+}
+}
+});
+document.getElementById('manualTrapToggle').addEventListener('click', function() {
+this.classList.toggle('active');
+manualTrapMode = this.classList.contains('active');
+if (manualTrapMode) { state.targetFloor = -1; manualMonsterMode = false; document.getElementById('manualMonsterToggle').classList.remove('active'); }
+if (!manualTrapMode && pendingShopItem && pendingShopItem.kind === 'trap') {
+const targetFloor = findBestFloorForTrap();
+const freeSlot = trapSlots.find(s => !s.occupied && s.floor === targetFloor);
+if (freeSlot) { freeSlot.occupied = true; freeSlot.trapType = pendingShopItem.type; freeSlot.y = getTrapY(pendingShopItem.type, freeSlot.floor); }
+pendingShopItem = null;
+}
+});
+document.getElementById('manualMonsterToggle').addEventListener('click', function() {
+this.classList.toggle('active');
+manualMonsterMode = this.classList.contains('active');
+if (manualMonsterMode) { state.targetFloor = -1; manualTrapMode = false; document.getElementById('manualTrapToggle').classList.remove('active'); }
+if (!manualMonsterMode && pendingShopItem && pendingShopItem.kind === 'monster') { spawnMonsterInstance(pendingShopItem.type); pendingShopItem = null; }
+});
+document.getElementById('deleteToggle').addEventListener('click', function() {
+this.classList.toggle('active');
+deleteMode = this.classList.contains('active');
+cv.style.cursor = deleteMode ? 'crosshair' : 'pointer';
+});
+document.getElementById('nextWave').addEventListener('click', () => { if (!devMode) return; state.waveTimer = 0; startWave(); });
+document.getElementById('addFloor').addEventListener('click', () => {
+if (!devMode) return;
+const cost = floorCost();
+if (state.gold >= cost || devMode) {
+if (!devMode) state.gold -= cost;
+state.floors++; protectNewFloor(); state.spawnMult *= 1.1;
+initTorches(); addFloorSlots(); recalcPositions();
+}
+});
+document.querySelectorAll('.trap-btn').forEach(btn => {
+btn.addEventListener('click', () => {
+const type = btn.dataset.type; const cost = costOf(type);
+if (!(devMode || state.gold >= cost)) return;
+if (manualTrapMode && hasArtifact('manual_traps')) {
+if (!devMode) state.gold -= cost;
+state.traps[type]++;
+pendingShopItem = { kind: 'trap', type: type };
+return;
+}
+let targetFloor;
+if (state.mode === 'targeted') { if (state.targetFloor < 0) { showFloorHint(); return; } targetFloor = state.targetFloor; }
+else { targetFloor = findBestFloorForTrap(); }
+const freeSlot = trapSlots.find(s => !s.occupied && s.floor === targetFloor);
+if (!freeSlot) { showInfoMessage('Нет свободного места на этаже'); return; }
+if (!devMode) state.gold -= cost;
+state.traps[type]++;
+freeSlot.occupied = true; freeSlot.trapType = type; freeSlot.y = getTrapY(type, freeSlot.floor);
+});
+});
+document.querySelectorAll('.mon-btn').forEach(btn => {
+btn.addEventListener('click', () => {
+const type = btn.dataset.type; const cost = costOf(type);
+if (!(devMode || state.gold >= cost)) return;
+if (manualMonsterMode && hasArtifact('manual_monsters')) {
+if (!devMode) state.gold -= cost;
+state.monsters[type]++;
+pendingShopItem = { kind: 'monster', type: type };
+return;
+}
+let targetFloor = -1;
+if (state.mode === 'targeted') { if (state.targetFloor < 0) { showFloorHint(); return; } targetFloor = state.targetFloor; }
+if (!devMode) state.gold -= cost;
+state.monsters[type]++;
+spawnMonsterInstance(type, targetFloor);
+});
+});
+document.getElementById('upgDmg').addEventListener('click', () => { const c = Math.floor(100 * Math.pow(5, state.upgDmgLvl)); if (devMode || state.gold >= c) { if (!devMode) state.gold -= c; state.upgDmgLvl++; state.dmgMult *= 1.1; } });
+document.getElementById('upgMonDmg').addEventListener('click', () => { const c = Math.floor(150 * Math.pow(5, state.upgMonDmgLvl)); if (devMode || state.gold >= c) { if (!devMode) state.gold -= c; state.upgMonDmgLvl++; state.monsterDmgMult *= 1.1; } });
+document.getElementById('upgGold').addEventListener('click', () => { const c = Math.floor(75 * Math.pow(11, state.upgGoldLvl)); if (devMode || state.gold >= c) { if (!devMode) state.gold -= c; state.upgGoldLvl++; state.goldMult *= 1.1; } });
+document.getElementById('upgCrit').addEventListener('click', () => { const c = Math.floor(50 * Math.pow(1.5, state.upgCritLvl)); if (devMode || state.gold >= c) { if (!devMode) state.gold -= c; state.upgCritLvl++; state.critChance += 0.05; } });
+document.getElementById('upgSpawn').addEventListener('click', () => { const c = Math.floor(40 * Math.pow(1.5, state.upgSpawnLvl)); if (devMode || state.gold >= c) { if (!devMode) state.gold -= c; state.upgSpawnLvl++; state.spawnMult *= 1.35; } });
+document.getElementById('clearFloorBtn').addEventListener('click', () => {
+gamePaused = true;
+const choicesDiv = document.getElementById('floorChoices');
+choicesDiv.innerHTML = '';
+for (let f = 0; f < state.floors; f++) {
+const btn = document.createElement('button');
+btn.className = 'btn'; btn.textContent = `Этаж ${f + 1}`;
+btn.addEventListener('click', () => {
+for (const slot of trapSlots) { if (slot.floor === f && slot.occupied) { slot.occupied = false; slot.trapType = null; } }
+for (const type in state.traps) state.traps[type] = trapSlots.filter(s => s.occupied && s.trapType === type).length;
+for (let i = monsterInstances.length - 1; i >= 0; i--) {
+if (monsterInstances[i].floor === f) { const mType = monsterInstances[i].type; state.monsters[mType] = Math.max(0, state.monsters[mType] - 1); monsterInstances.splice(i, 1); }
+}
+gamePaused = false; document.getElementById('clearFloorModal').classList.remove('active');
+});
+choicesDiv.appendChild(btn);
+}
+document.getElementById('clearFloorModal').classList.add('active');
+});
+document.getElementById('cancelClear').addEventListener('click', () => { gamePaused = false; document.getElementById('clearFloorModal').classList.remove('active'); });
+document.querySelectorAll('.ctrl-btn[data-speed]').forEach(btn => {
+btn.addEventListener('click', () => { gameSpeed = parseInt(btn.dataset.speed); updateSpeedButtons(); });
+});
+document.getElementById('pauseBtn').addEventListener('click', () => {
+isPaused = !isPaused;
+document.getElementById('pauseBtn').textContent = isPaused ? '▶️' : '⏸️';
+document.getElementById('pauseBtn').classList.toggle('paused-active', isPaused);
+});
+document.getElementById('continueGameBtn').addEventListener('click', () => {
+document.getElementById('victoryModal').classList.remove('active');
+isPaused = false;
+goblinSlayer = null;
+});
+function getAvailableArtifacts() {
+return Object.keys(ARTIFACT_TREE).filter(id => {
+if (state.artifacts.includes(id)) return false;
+const node = ARTIFACT_TREE[id];
+if (node.layer === 2 && state.rebirthCount < 3) return false;
+if (node.layer === 3 && state.rebirthCount < 4) return false;
+if (node.layer === 4 && state.rebirthCount < 5) return false;
+if (node.layer === 0) return true;
+const prevLayerIds = Object.keys(ARTIFACT_TREE).filter(k => ARTIFACT_TREE[k].layer === node.layer - 1);
+return prevLayerIds.some(k => state.artifacts.includes(k));
+});
+}
+function renderArtifactTree() {
+const container = document.getElementById('artifactTree');
+container.innerHTML = '';
+const rows = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+for (const id in ARTIFACT_TREE) { const node = ARTIFACT_TREE[id]; rows[node.layer].push(id); }
+const available = getAvailableArtifacts();
+for (let layer = 0; layer <= 4; layer++) {
+if (layer > 0) { const conn = document.createElement('div'); conn.className = 'tree-connector'; conn.textContent = '│'; container.appendChild(conn); }
+const row = document.createElement('div'); row.className = 'tree-row';
+for (const id of rows[layer]) {
+const node = ARTIFACT_TREE[id];
+const unlocked = state.artifacts.includes(id);
+const isAvailable = available.includes(id) && artifactChoicesLeft > 0;
+const nodeDiv = document.createElement('div');
+nodeDiv.className = 'tree-node';
+if (unlocked) nodeDiv.classList.add('unlocked');
+else if (isAvailable) nodeDiv.classList.add('available');
+else nodeDiv.classList.add('locked');
+let status = '';
+if (unlocked) status = '✓ КУПЛЕНО';
+else if (isAvailable) status = '★ ДОСТУПНО';
+else if (node.layer === 2 && state.rebirthCount < 3) status = '🔒 с 3-го перерождения';
+else if (node.layer === 3 && state.rebirthCount < 4) status = '🔒 с 4-го перерождения';
+else if (node.layer === 4 && state.rebirthCount < 5) status = '🔒 с 5-го перерождения';
+else if (available.includes(id) && artifactChoicesLeft === 0) status = '🛑 Нет выборов';
+else status = '🔒';
+nodeDiv.innerHTML = `<div class="node-name">${node.name}</div><div class="node-desc">${node.desc}</div><div style="margin-top:4px; font-size:20px; color:${unlocked ? '#4aff4a' : isAvailable ? '#ffd700' : '#888'}">${status}</div>`;
+if (isAvailable) {
+nodeDiv.onclick = () => {
+state.artifacts.push(id); artifactChoicesLeft--;
+document.getElementById('choicesLeft').textContent = artifactChoicesLeft;
+if (artifactChoicesLeft === 0) {
+document.getElementById('artifactModal').classList.remove('active');
+gamePaused = false;
+} else {
+renderArtifactTree();
+}
+};
+}
+row.appendChild(nodeDiv);
+}
+container.appendChild(row);
+}
+}
+function showArtifactSelection() {
+const available = getAvailableArtifacts();
+if (available.length === 0) { gamePaused = false; return; }
+gamePaused = true;
+document.getElementById('rebirthNumber').textContent = state.rebirthCount;
+artifactChoicesLeft = Math.min(state.rebirthCount, available.length);
+document.getElementById('choicesTotal').textContent = artifactChoicesLeft;
+document.getElementById('choicesLeft').textContent = artifactChoicesLeft;
+renderArtifactTree();
+document.getElementById('artifactModal').classList.add('active');
+}
+document.getElementById('rebirth').addEventListener('click', () => {
+performRebirth(false);
+});
+document.getElementById('settingsBtn').addEventListener('click', () => { document.getElementById('settingsModal').classList.add('active'); });
+document.getElementById('closeSettings').addEventListener('click', () => { document.getElementById('settingsModal').classList.remove('active'); });
+document.getElementById('showNormalCrit').addEventListener('change', (e) => { settings.showNormalCrit = e.target.checked; });
+document.getElementById('showSuperCrit').addEventListener('change', (e) => { settings.showSuperCrit = e.target.checked; });
+document.getElementById('showMegaCrit').addEventListener('change', (e) => { settings.showMegaCrit = e.target.checked; });
+document.getElementById('showUltraCrit').addEventListener('change', (e) => { settings.showUltraCrit = e.target.checked; });
+document.getElementById('hidePoisonEffect').addEventListener('change', (e) => { settings.hidePoisonEffect = e.target.checked; });
+document.getElementById('hideBardEffect').addEventListener('change', (e) => { settings.hideBardEffect = e.target.checked; });
+document.getElementById('hideDeathEffect').addEventListener('change', (e) => { settings.hideDeathEffect = e.target.checked; });
+document.getElementById('hideIceEffect').addEventListener('change', (e) => { settings.hideIceEffect = e.target.checked; });
+document.getElementById('hideRuneEffect').addEventListener('change', (e) => { settings.hideRuneEffect = e.target.checked; });
+document.getElementById('devMode').addEventListener('change', (e) => {
+devMode = e.target.checked;
+document.querySelectorAll('.dev-speed').forEach(b => b.style.display = devMode ? 'block' : 'none');
+if (!devMode && gameSpeed > 2) { gameSpeed = 1; updateSpeedButtons(); }
+});
+initSlots();
+resetFloorProtection();
+function loop(now) {
+let rawDt = (now - lastTime) / 1000;
+lastTime = now;
+rawDt = Math.min(rawDt, 0.1);
+const dt = rawDt * gameSpeed;
+tick++;
+update(dt);
+render();
+updateUI();
+requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
